@@ -319,7 +319,7 @@ export async function POST(
     const isDealer = dealerResult.rows[0]?.is_dealer || false;
     
     // Calculate scores
-    const { scores, totalPoints } = await calculateRoundScores(id, {
+    const { scores, totalPoints } = await calculateRoundScores(parseInt(id), {
       winner_ids,
       loser_id,
       is_self_draw,
