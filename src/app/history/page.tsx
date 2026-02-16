@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AnimatedButton, AnimatedCard, IconButton, FadeIn } from '@/components/AnimatedElements';
 
 interface Game {
   id: number;
@@ -321,7 +322,8 @@ export default function HistoryPage() {
                 dateRange: 'all',
                 searchQuery: '',
               })}
-              className="w-full py-2 text-sm text-gray-600 bg-gray-100 rounded-lg"
+              className="w-full py-2 text-sm text-gray-600 bg-gray-100 rounded-lg btn-press"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               清除篩選
             </button>
@@ -341,7 +343,8 @@ export default function HistoryPage() {
             <div className="flex gap-2">
               <button
                 onClick={selectAll}
-                className="flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium"
+                className="flex-1 py-2 bg-gray-100 rounded-lg text-sm font-medium btn-press"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 {selectedGames.size === completedGames.length ? '取消全選' : '全選已完成'}
               </button>
@@ -349,7 +352,8 @@ export default function HistoryPage() {
               {selectedGames.size > 0 && (
                 <button
                   onClick={() => setShowBatchDeleteConfirm(true)}
-                  className="flex-1 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium"
+                  className="flex-1 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium btn-press"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   刪除已選 ({selectedGames.size})
                 </button>
@@ -358,7 +362,8 @@ export default function HistoryPage() {
             
             <button
               onClick={() => setShowClearConfirm(true)}
-              className="w-full py-2 bg-red-600 text-white rounded-lg text-sm font-medium"
+              className="w-full py-2 bg-red-600 text-white rounded-lg text-sm font-medium btn-ripple"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               🗑️ 清空所有歷史 ({completedGames.length})
             </button>
@@ -381,14 +386,15 @@ export default function HistoryPage() {
               <p className="text-gray-500">沒有符合條件的牌局</p>
             </div>
           ) : (
-            filteredGames.map(game => (
-              <div
-                key={game.id}
-                className={`bg-white rounded-lg shadow p-4 transition ${
-                  selectedGames.has(game.id) ? 'ring-2 ring-red-500' : ''
-                }`}
-              >
-                <div className="flex items-start gap-3">
+            filteredGames.map((game, index) => (
+              <FadeIn key={game.id} delay={index * 30}>
+                <div
+                  className={`bg-white rounded-lg shadow p-4 transition card-press ${
+                    selectedGames.has(game.id) ? 'ring-2 ring-red-500' : ''
+                  }`}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  <div className="flex items-start gap-3">
                   {/* Checkbox for completed games */}
                   {game.status === 'completed' && (
                     <input
@@ -443,14 +449,16 @@ export default function HistoryPage() {
                     <div className="mt-3 flex items-center gap-2">
                       <Link
                         href={`/game/${game.id}`}
-                        className="text-sm text-blue-600 hover:text-blue-800"
+                        className="text-sm text-blue-600 hover:text-blue-800 btn-press inline-block"
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
                       >
                         查看詳情 →
                       </Link>
                       
                       <button
                         onClick={() => deleteGame(game.id, game.name, game.status === 'active')}
-                        className="text-sm text-red-400 hover:text-red-600 ml-auto"
+                        className="text-sm text-red-400 hover:text-red-600 ml-auto btn-press"
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
                       >
                         刪除
                       </button>
@@ -458,8 +466,9 @@ export default function HistoryPage() {
                   </div>
                 </div>
               </div>
-            ))
-          )}
+            </FadeIn>
+          ))
+        )}
         </div>
       </main>
 
@@ -475,13 +484,15 @@ export default function HistoryPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowBatchDeleteConfirm(false)}
-                className="flex-1 py-2 bg-gray-200 rounded-lg"
+                className="flex-1 py-2 bg-gray-200 rounded-lg btn-press"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 取消
               </button>
               <button
                 onClick={batchDelete}
-                className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold"
+                className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold btn-ripple"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 確認刪除
               </button>
@@ -502,13 +513,15 @@ export default function HistoryPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowClearConfirm(false)}
-                className="flex-1 py-2 bg-gray-200 rounded-lg"
+                className="flex-1 py-2 bg-gray-200 rounded-lg btn-press"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 取消
               </button>
               <button
                 onClick={clearAllHistory}
-                className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold"
+                className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold btn-ripple"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 確認清空
               </button>
