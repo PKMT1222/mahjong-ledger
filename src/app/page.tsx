@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { GameVariant, Player } from '@/types';
 
 const VARIANTS: { id: GameVariant; name: string; emoji: string; desc: string }[] = [
+  { id: 'hongkong', name: '香港麻雀', emoji: '🇭🇰', desc: '港式13張 - 主打' },
   { id: 'taiwan', name: '台灣麻將', emoji: '🀄', desc: '經典台灣16張' },
   { id: 'japanese', name: '日本麻雀', emoji: '🎌', desc: '立直/日本規則' },
-  { id: 'hongkong', name: '香港麻雀', emoji: '🇭🇰', desc: '港式13張' },
   { id: 'hk-taiwan', name: '港式台灣', emoji: '🎋', desc: '混合規則' },
   { id: 'paoma', name: '跑馬仔', emoji: '🐎', desc: '碰槓牌/買馬' },
 ];
@@ -18,11 +18,18 @@ export default function Home() {
   const [showNewGame, setShowNewGame] = useState(false);
   const [showNewPlayer, setShowNewPlayer] = useState(false);
   
-  // New game form
+  // New game form - default to Hong Kong
   const [newGameName, setNewGameName] = useState('');
-  const [selectedVariant, setSelectedVariant] = useState<GameVariant>('taiwan');
+  const [selectedVariant, setSelectedVariant] = useState<GameVariant>('hongkong');
   const [selectedPlayers, setSelectedPlayers] = useState<number[]>([]);
   const [newPlayerName, setNewPlayerName] = useState('');
+  
+  // HK-specific settings
+  const [hkSettings, setHkSettings] = useState({
+    fullLiability: true,        // 全銃
+    selfDrawMultiplier: 2,      // 自摸倍數 (2x or 3x)
+    jackpotEnabled: false,      // Jackpot
+  });
 
   useEffect(() => {
     fetchData();
@@ -53,17 +60,21 @@ export default function Home() {
 
   async function createGame(e: React.FormEvent) {
     e.preventDefault();
-    if (selectedPlayers.length < 3) {
-      alert('Need at least 3 players');
+    if (selectedPlayers.length < 4) {
+      alert('香港麻雀需要4位玩家');
       return;
     }
+    
+    const customSettings = selectedVariant === 'hongkong' ? hkSettings : {};
+    
     const res = await fetch('/api/games', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        name: newGameName, 
+        name: newGameName || '香港麻雀局', 
         variant: selectedVariant,
-        playerIds: selectedPlayers 
+        playerIds: selectedPlayers,
+        customSettings
       })
     });
     if (res.ok) {
@@ -81,13 +92,13 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-emerald-900">
+    <main className="min-h-screen bg-gradient-to-br from-red-900 via-red-800 to-rose-900">
       {/* Header */}
-      <header className="bg-black/30 backdrop-blur-sm border-b border-white/10">
+      <header className="bg-black/40 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-            <span className="text-4xl">🀄</span>
-            麻將計數機
+            <span className="text-4xl">🇭🇰</span>
+            香港麻雀計數機
           </h1>
           <button 
             onClick={initDb}
@@ -99,6 +110,20 @@ export default function Home() {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* HK Rules Banner */}
+        <div className="bg-gradient-to-r from-yellow-500 to-amber-500 rounded-2xl p-6 mb-8 shadow-xl">
+          <h2 className="text-2xl font-bold text-white mb-2">🇭🇰 香港麻雀專版</h2>
+          <p className="text-white/90">
+            支援全銃/半銃、雞胡、自摸倍數、Jackpot玩法
+          </p>
+          <div className="flex gap-4 mt-4 text-sm text-white/80">
+            <span>✅ 雞胡 (0番)</span>
+            <span>✅ 全銃/半銃</span>
+            <span>✅ 自摸 2x/3x</span>
+            <span>✅ 一檔/二檔/Jackpot</span>
+          </div>
+        </div>
+
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-white">
@@ -114,8 +139,8 @@ export default function Home() {
             <p className="text-3xl font-bold">{games.filter(g => g.status === 'completed').length}</p>
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-white">
-            <p className="text-sm opacity-70">支援規則</p>
-            <p className="text-3xl font-bold">5</p>
+            <p className="text-sm opacity-70">主打規則</p>
+            <p className="text-xl font-bold">🇭🇰 港式</p>
           </div>
         </div>
 
@@ -123,7 +148,7 @@ export default function Home() {
           {/* Left: Players */}
           <div className="lg:col-span-1">
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden">
-              <div className="p-4 border-b bg-gradient-to-r from-amber-500 to-orange-500">
+              <div className="p-4 border-b bg-gradient-to-r from-red-500 to-rose-500">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
                     👥 玩家管理
@@ -138,7 +163,7 @@ export default function Home() {
               </div>
 
               {showNewPlayer && (
-                <form onSubmit={addPlayer} className="p-4 border-b bg-amber-50">
+                <form onSubmit={addPlayer} className="p-4 border-b bg-red-50">
                   <input
                     type="text"
                     placeholder="輸入玩家名稱"
@@ -147,7 +172,7 @@ export default function Home() {
                     className="w-full px-3 py-2 border rounded-lg mb-2"
                     required
                   />
-                  <button type="submit" className="w-full py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600">
+                  <button type="submit" className="w-full py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
                     添加玩家
                   </button>
                 </form>
@@ -159,7 +184,7 @@ export default function Home() {
                 ) : (
                   players.map(p => (
                     <div key={p.id} className="p-3 border-b hover:bg-gray-50 flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold">
+                      <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-rose-600 rounded-full flex items-center justify-center text-white font-bold">
                         {p.name.charAt(0)}
                       </div>
                       <div className="flex-1">
@@ -173,7 +198,11 @@ export default function Home() {
                         checked={selectedPlayers.includes(p.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedPlayers([...selectedPlayers, p.id]);
+                            if (selectedPlayers.length < 4) {
+                              setSelectedPlayers([...selectedPlayers, p.id]);
+                            } else {
+                              alert('香港麻雀只需4位玩家');
+                            }
                           } else {
                             setSelectedPlayers(selectedPlayers.filter(id => id !== p.id));
                           }
@@ -192,12 +221,12 @@ export default function Home() {
             {/* New Game Button */}
             <button
               onClick={() => setShowNewGame(!showNewGame)}
-              className="w-full mb-6 p-6 bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl shadow-xl text-white hover:shadow-2xl hover:scale-[1.02] transition"
+              className="w-full mb-6 p-6 bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl shadow-xl text-white hover:shadow-2xl hover:scale-[1.02] transition"
             >
               <div className="flex items-center justify-center gap-3">
-                <span className="text-3xl">🎮</span>
+                <span className="text-3xl">🀄</span>
                 <span className="text-xl font-bold">開新牌局</span>
-                <span className="text-sm opacity-80">({selectedPlayers.length} 位玩家已選擇)</span>
+                <span className="text-sm opacity-80">({selectedPlayers.length}/4 位玩家)</span>
               </div>
             </button>
 
@@ -211,10 +240,9 @@ export default function Home() {
                     value={newGameName}
                     onChange={(e) => setNewGameName(e.target.value)}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl mb-4 text-lg"
-                    required
                   />
                   
-                  <p className="text-sm text-gray-600 mb-3">選擇麻雀規則:</p>
+                  <p className="text-sm text-gray-600 mb-3">選擇麻雀規則 (默認港式):</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                     {VARIANTS.map(v => (
                       <button
@@ -223,8 +251,8 @@ export default function Home() {
                         onClick={() => setSelectedVariant(v.id)}
                         className={`p-4 rounded-xl border-2 transition text-left ${
                           selectedVariant === v.id 
-                            ? 'border-green-500 bg-green-50' 
-                            : 'border-gray-200 hover:border-green-300'
+                            ? 'border-red-500 bg-red-50' 
+                            : 'border-gray-200 hover:border-red-300'
                         }`}
                       >
                         <span className="text-2xl">{v.emoji}</span>
@@ -234,6 +262,48 @@ export default function Home() {
                     ))}
                   </div>
 
+                  {/* HK-Specific Settings */}
+                  {selectedVariant === 'hongkong' && (
+                    <div className="mb-4 p-4 bg-red-50 rounded-xl">
+                      <h4 className="font-bold mb-3">🇭🇰 香港麻雀設定</h4>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm">計分方式</label>
+                          <select 
+                            value={hkSettings.fullLiability ? 'full' : 'half'}
+                            onChange={(e) => setHkSettings({...hkSettings, fullLiability: e.target.value === 'full'})}
+                            className="px-3 py-1 border rounded"
+                          >
+                            <option value="full">全銃 (閒家全付)</option>
+                            <option value="half">半銃 (閒家付半)</option>
+                          </select>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm">自摸倍數</label>
+                          <select 
+                            value={hkSettings.selfDrawMultiplier}
+                            onChange={(e) => setHkSettings({...hkSettings, selfDrawMultiplier: parseInt(e.target.value)})}
+                            className="px-3 py-1 border rounded"
+                          >
+                            <option value={2}>2倍 (傳統)</option>
+                            <option value={3}>3倍 (現代)</option>
+                          </select>
+                        </div>
+                        
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={hkSettings.jackpotEnabled}
+                            onChange={(e) => setHkSettings({...hkSettings, jackpotEnabled: e.target.checked})}
+                          />
+                          <span className="text-sm">啟用 Jackpot (一檔/二檔)</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
                   {selectedPlayers.length > 0 && (
                     <div className="mb-4">
                       <p className="text-sm text-gray-600 mb-2">已選擇玩家:</p>
@@ -241,7 +311,7 @@ export default function Home() {
                         {selectedPlayers.map(pid => {
                           const p = players.find(pl => pl.id === pid);
                           return p ? (
-                            <span key={pid} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                            <span key={pid} className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">
                               {p.name}
                             </span>
                           ) : null;
@@ -252,10 +322,10 @@ export default function Home() {
 
                   <button 
                     type="submit" 
-                    disabled={selectedPlayers.length < 3}
-                    className="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+                    disabled={selectedPlayers.length !== 4}
+                    className="w-full py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
                   >
-                    開始牌局
+                    {selectedPlayers.length === 4 ? '開始牌局' : `請選擇4位玩家 (現時${selectedPlayers.length}位)`}
                   </button>
                 </div>
               </form>
@@ -274,7 +344,7 @@ export default function Home() {
                     <div>
                       <h4 className="font-bold text-lg">{game.name}</h4>
                       <p className="text-sm text-gray-500">
-                        {VARIANTS.find(v => v.id === game.variant)?.name || game.variant}
+                        {game.variant === 'hongkong' ? '🇭🇰 香港麻雀' : VARIANTS.find(v => v.id === game.variant)?.name}
                       </p>
                     </div>
                     <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
@@ -313,7 +383,9 @@ export default function Home() {
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h4 className="font-bold text-lg">{game.name}</h4>
-                          <p className="text-sm text-gray-500">{game.variant}</p>
+                          <p className="text-sm text-gray-500">
+                            {game.variant === 'hongkong' ? '🇭🇰 香港麻雀' : game.variant}
+                          </p>
                         </div>
                         <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
                           已完成
