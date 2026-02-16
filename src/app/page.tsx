@@ -142,6 +142,24 @@ export default function Home() {
     }
   }
 
+  async function deleteGame(id: number, name: string) {
+    if (!confirm(`確定要刪除牌局 "${name}" 嗎？\n此操作無法還原。`)) {
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/games?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchData();
+      } else {
+        const error = await res.json();
+        alert('刪除失敗: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      alert('刪除失敗: ' + error.message);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Simple Header */}
@@ -226,21 +244,37 @@ export default function Home() {
           <h2 className="font-bold text-gray-800 mb-3">最近牌局</h2>
           <div className="space-y-2">
             {games.slice(0, 5).map(game => (
-              <Link 
+              <div 
                 key={game.id}
-                href={`/game/${game.id}`}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 group"
               >
-                <div>
+                <Link 
+                  href={`/game/${game.id}`}
+                  className="flex-1"
+                >
                   <p className="font-medium">{game.name}</p>
                   <p className="text-xs text-gray-500">
                     {game.status === 'active' ? '進行中' : '已完成'}
                     {' · '}
                     第{game.current_round}局
                   </p>
+                </Link>
+                <div className="flex items-center gap-2">
+                  <Link 
+                    href={`/game/${game.id}`}
+                    className="text-red-600"
+                  >
+                    →
+                  </Link>
+                  <button
+                    onClick={() => deleteGame(game.id, game.name)}
+                    className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-2 py-1 transition"
+                    title="刪除牌局"
+                  >
+                    🗑️
+                  </button>
                 </div>
-                <span className="text-red-600">→</span>
-              </Link>
+              </div>
             ))}
             {games.length === 0 && (
               <p className="text-gray-400 text-center py-4 text-sm">暫無牌局</p>

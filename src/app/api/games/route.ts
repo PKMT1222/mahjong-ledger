@@ -186,3 +186,31 @@ export async function PUT(request: Request) {
     }, { status: 500 });
   }
 }
+
+// DELETE /api/games - Delete game
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Game ID required' }, { status: 400 });
+    }
+    
+    // Check if game exists
+    const checkResult = await pool.query('SELECT id FROM games WHERE id = $1', [id]);
+    if (checkResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Game not found' }, { status: 404 });
+    }
+    
+    // Delete game (cascade will handle related records)
+    await pool.query('DELETE FROM games WHERE id = $1', [id]);
+    
+    return NextResponse.json({ success: true, message: 'Game deleted' });
+  } catch (error) {
+    console.error('Delete game error:', error);
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+}
