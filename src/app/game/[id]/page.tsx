@@ -172,9 +172,16 @@ export default function GamePage() {
       resetForm();
       fetchGameData();
     } else {
-      const errorData = await res.json();
-      alert('記錄失敗: ' + (errorData.error || errorData.message || 'Unknown error'));
-      console.error('Record error:', errorData);
+      let errorMessage = 'Unknown error';
+      try {
+        const errorData = await res.json();
+        errorMessage = errorData.error || errorData.message || JSON.stringify(errorData);
+      } catch (e) {
+        const text = await res.text();
+        errorMessage = text || `HTTP ${res.status}`;
+      }
+      alert('記錄失敗: ' + errorMessage);
+      console.error('Record error:', errorMessage);
     }
   }
 

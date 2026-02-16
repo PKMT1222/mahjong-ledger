@@ -273,6 +273,7 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await request.json();
+    console.log('POST /api/games/' + id + '/rounds - body:', JSON.stringify(body, null, 2));
     
     const {
       dealer_id,
@@ -290,13 +291,31 @@ export async function POST(
       notes
     } = body;
     
+    // Validate required fields
+    if (!dealer_id) {
+      return NextResponse.json({ error: 'dealer_id is required' }, { status: 400 });
+    }
+    if (!winner_ids || !Array.isArray(winner_ids) || winner_ids.length === 0) {
+      return NextResponse.json({ error: 'winner_ids is required and must be an array' }, { status: 400 });
+    }
+    
     // Get game info
     const gameResult = await pool.query(
       'SELECT current_round, current_wind, dealer_repeat, settings FROM games WHERE id = $1',
       [id]
     );
+    
+    if (gameResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Game not found' }, { status: 404 });
+    }
+    
     const game = gameResult.rows[0];
-    const settings = JSON.parse(game.settings);
+    let settings = {};
+    try {
+      settings = JSON.parse(game.settings || '{}');
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
     
     // Get next round number
     const countResult = await pool.query(
