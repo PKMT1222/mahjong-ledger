@@ -755,10 +755,10 @@ export default function GamePage() {
                           ))}
                         </div>
                         {baoPayerId && (
-                          <p className="text-sm text-amber-700 mt-2">
+                          <p className="text-sm mt-2" style={{ color: '#0D9488' }}>
                             包家將支付 {getBaoSelfDrawTotal()} 分
-                            <span className="text-xs text-gray-500 block">
-                              (包自摸: 番數 × {customRule?.selfDrawMultiplier || config.selfDrawMultiplier})
+                            <span className="text-xs text-slate-500 block">
+                              (包自摸: 基本分數 × 1.5)
                             </span>
                           </p>
                         )}
@@ -815,12 +815,12 @@ export default function GamePage() {
 
                 {/* Score Preview */}
                 {totalValue > 0 && (
-                  <div className="p-4 bg-yellow-50 rounded-lg">
+                  <div className="p-4 rounded-xl" style={{ background: '#F0FDFA', border: '1px solid #99F6E4' }}>
                     <div className="text-center mb-2">
-                      <span className="text-3xl font-bold text-red-600">{calculateFinalScore().final}</span>
-                      <span className="text-gray-600 ml-2">分</span>
+                      <span className="text-3xl font-bold" style={{ color: '#0D9488' }}>{calculateFinalScore().final}</span>
+                      <span className="text-slate-600 ml-2">分</span>
                     </div>
-                    <div className="text-center text-sm text-gray-500">
+                    <div className="text-center text-sm text-slate-500">
                       {calculateFinalScore().breakdown}
                     </div>
                   </div>
@@ -926,16 +926,20 @@ export default function GamePage() {
                   <button 
                     type="button" 
                     onClick={() => setShowRecord(false)} 
-                    className="flex-1 py-3 bg-gray-200 rounded-lg btn-press"
-                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                    className="flex-1 py-3 rounded-xl font-medium transition-all hover:bg-slate-200"
+                    style={{ WebkitTapHighlightColor: 'transparent', backgroundColor: '#F1F5F9', color: '#64748B' }}
                   >
                     取消
                   </button>
                   <button 
                     type="submit" 
                     disabled={winnerIds.length === 0 || (!isSelfDraw && !loserId) || (multipleWinnersMode && winnerIds.length < 2) || (isBaoZimo && !baoPayerId)}
-                    className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold disabled:bg-gray-400 btn-ripple"
-                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                    className="flex-1 py-3 rounded-xl font-bold text-white transition-all hover:transform hover:-translate-y-0.5 disabled:bg-slate-300"
+                    style={{ 
+                      WebkitTapHighlightColor: 'transparent',
+                      background: winnerIds.length > 0 ? 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)' : undefined,
+                      boxShadow: winnerIds.length > 0 ? '0 4px 14px rgba(13, 148, 136, 0.39)' : 'none'
+                    }}
                   >
                     確認 {calculateFinalScore().final > 0 && `(${multipleWinnersMode ? winnerIds.length * calculateFinalScore().final : isBaoZimo ? getBaoSelfDrawTotal() : calculateFinalScore().final}分)`}
                   </button>
