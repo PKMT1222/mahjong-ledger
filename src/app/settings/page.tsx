@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTheme } from '@/app/providers/ThemeProvider';
+import { useLanguage } from '@/app/providers/LanguageProvider';
+import { themes, Theme } from '@/lib/themes';
 
 // Default HK hand types with fan values
 const DEFAULT_HAND_TYPES = [
@@ -50,11 +53,13 @@ const categories: { [key: string]: string } = {
 };
 
 export default function SettingsPage() {
+  const { theme, setTheme, themeConfig } = useTheme();
+  const { lang, setLang, t } = useLanguage();
   const [handTypes, setHandTypes] = useState(DEFAULT_HAND_TYPES);
   const [saved, setSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState<'appearance' | 'hands'>('appearance');
 
   useEffect(() => {
-    // Load from localStorage
     const saved = localStorage.getItem('hkHandTypes');
     if (saved) {
       try {
@@ -87,7 +92,6 @@ export default function SettingsPage() {
     }
   }
 
-  // Group by category
   const grouped = handTypes.reduce((acc, hand) => {
     if (!acc[hand.category]) acc[hand.category] = [];
     acc[hand.category].push(hand);
@@ -95,69 +99,220 @@ export default function SettingsPage() {
   }, {} as { [key: string]: typeof handTypes });
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen pb-8" style={{ background: 'var(--color-background)' }}>
       {/* Header */}
-      <header className="bg-red-700 text-white p-4">
+      <header className="app-header p-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <Link href="/" className="text-white text-lg">←</Link>
-          <h1 className="text-xl font-bold">⚙️ 番種設定</h1>
+          <h1 className="text-xl font-bold">⚙️ {t('settings')}</h1>
           <div className="w-6"></div>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto p-4 space-y-4">
-        {/* Info */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-          <p>自定義每個番種的番數。修改後會保存在本機，新開牌局會使用這些設定。</p>
+      {/* Tabs */}
+      <div className="max-w-lg mx-auto px-4 pt-4">
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setActiveTab('appearance')}
+            className={`flex-1 py-2 rounded-lg font-medium transition-all ${
+              activeTab === 'appearance'
+                ? 'btn-primary'
+                : 'btn-secondary'
+            }`}
+          >
+            🎨 {t('appearance')}
+          </button>
+          <button
+            onClick={() => setActiveTab('hands')}
+            className={`flex-1 py-2 rounded-lg font-medium transition-all ${
+              activeTab === 'hands'
+                ? 'btn-primary'
+                : 'btn-secondary'
+            }`}
+          >
+            🀄 {t('handTypes')}
+          </button>
         </div>
+      </div>
 
-        {/* Hand Types by Category */}
-        {Object.entries(grouped).map(([category, hands]) => (
-          <div key={category} className="bg-white rounded-lg shadow p-4">
-            <h2 className="font-bold text-gray-800 mb-3">{categories[category] || category}</h2>
-            <div className="space-y-2">
-              {hands.map(hand => (
-                <div key={hand.name} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                  <span className="font-medium">{hand.name}</span>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      value={hand.fan}
-                      onChange={(e) => updateFan(hand.name, parseInt(e.target.value) || 0)}
-                      className="w-16 px-2 py-1 border rounded text-center"
-                      min={0}
-                      max={100}
-                    />
-                    <span className="text-sm text-gray-500">番</span>
+      <main className="max-w-lg mx-auto px-4 space-y-4">
+        {activeTab === 'appearance' ? (
+          <>
+            {/* Theme Selection */}
+            <div className="app-card p-5">
+              <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--color-text)' }}>
+                🎨 {t('theme')}
+              </h2>
+              <div className="space-y-3">
+                {(Object.keys(themes) as Theme[]).map((themeKey) => {
+                  const config = themes[themeKey];
+                  return (
+                    <button
+                      key={themeKey}
+                      onClick={() => setTheme(themeKey)}
+                      className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                        theme === themeKey
+                          ? 'border-current'
+                          : 'border-transparent hover:border-gray-300'
+                      }`}
+                      style={{
+                        backgroundColor: config.colors.surface,
+                        borderColor: theme === themeKey ? config.colors.primary : undefined,
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-12 h-12 rounded-lg flex items-center justify-center text-xl"
+                          style={{
+                            backgroundColor: config.colors.primary,
+                            color: 'white',
+                          }}
+                        >
+                          {themeKey === 'default' && '🇭🇰'}
+                          {themeKey === 'ocean' && '🌊'}
+                          {themeKey === 'elite' && '👑'}
+                        </div>
+                        <div className="flex-1">
+                          <div
+                            className="font-bold"
+                            style={{ color: config.colors.text }}
+                          >
+                            {config.name}
+                          </div>
+                          <div
+                            className="text-sm"
+                            style={{ color: config.colors.textMuted }}
+                          >
+                            {config.description}
+                          </div>
+                        </div>
+                        {theme === themeKey && (
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center"
+                            style={{
+                              backgroundColor: config.colors.primary,
+                              color: 'white',
+                            }}
+                          >
+                            ✓
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Language Selection */}
+            <div className="app-card p-5">
+              <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--color-text)' }}>
+                🌐 {t('language')}
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setLang('zh')}
+                  className={`p-4 rounded-xl border-2 text-center transition-all ${
+                    lang === 'zh'
+                      ? 'border-current'
+                      : 'border-transparent hover:border-gray-300'
+                  }`}
+                  style={{
+                    backgroundColor: lang === 'zh' ? 'var(--color-primary)' : 'var(--color-surface)',
+                    color: lang === 'zh' ? 'white' : 'var(--color-text)',
+                    borderColor: lang === 'zh' ? 'var(--color-primary)' : undefined,
+                  }}
+                >
+                  <div className="text-2xl mb-1">🇭🇰</div>
+                  <div className="font-bold">繁體中文</div>
+                  <div className="text-xs opacity-70">Chinese</div>
+                </button>
+                <button
+                  onClick={() => setLang('en')}
+                  className={`p-4 rounded-xl border-2 text-center transition-all ${
+                    lang === 'en'
+                      ? 'border-current'
+                      : 'border-transparent hover:border-gray-300'
+                  }`}
+                  style={{
+                    backgroundColor: lang === 'en' ? 'var(--color-primary)' : 'var(--color-surface)',
+                    color: lang === 'en' ? 'white' : 'var(--color-text)',
+                    borderColor: lang === 'en' ? 'var(--color-primary)' : undefined,
+                  }}
+                >
+                  <div className="text-2xl mb-1">🇬🇧</div>
+                  <div className="font-bold">English</div>
+                  <div className="text-xs opacity-70">英文</div>
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Hand Types */}
+            <div className="app-card p-4" style={{ backgroundColor: 'var(--color-surface)' }}>
+              <div className="text-sm mb-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--color-secondary)', color: 'var(--color-text)' }}>
+                自定義每個番種的番數。修改後會保存在本機，新開牌局會使用這些設定。
+              </div>
+
+              {Object.entries(grouped).map(([category, hands]) => (
+                <div key={category} className="mb-4">
+                  <h2 className="font-bold mb-3 px-2" style={{ color: 'var(--color-text)' }}>
+                    {categories[category] || category}
+                  </h2>
+                  <div className="space-y-2">
+                    {hands.map(hand => (
+                      <div
+                        key={hand.name}
+                        className="flex items-center justify-between p-3 rounded-lg"
+                        style={{ backgroundColor: 'var(--color-secondary)' }}
+                      >
+                        <span className="font-medium" style={{ color: 'var(--color-text)' }}>
+                          {hand.name}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={hand.fan}
+                            onChange={(e) => updateFan(hand.name, parseInt(e.target.value) || 0)}
+                            className="w-16 px-2 py-1 rounded text-center app-input"
+                            min={0}
+                            max={100}
+                          />
+                          <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>番</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        ))}
 
-        {/* Action Buttons */}
-        <div className="flex gap-3">
-          <button
-            onClick={saveSettings}
-            className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold"
-          >
-            {saved ? '✓ 已保存' : '保存設定'}
-          </button>
-          <button
-            onClick={resetToDefault}
-            className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg"
-          >
-            重設
-          </button>
-        </div>
+              {/* Action Buttons */}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={saveSettings}
+                  className="flex-1 btn-primary py-3"
+                >
+                  {saved ? '✓ ' + t('saved') : t('save')}
+                </button>
+                <button
+                  onClick={resetToDefault}
+                  className="px-6 btn-secondary py-3"
+                >
+                  {t('reset')}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Back */}
         <Link 
           href="/"
-          className="block text-center py-3 text-gray-600"
+          className="block text-center py-3"
+          style={{ color: 'var(--color-text-muted)' }}
         >
-          ← 返回主頁
+          ← {t('back')}
         </Link>
       </main>
     </div>
