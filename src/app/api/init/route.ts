@@ -3,53 +3,101 @@ import pool from '@/lib/db';
 
 export async function POST() {
   try {
-    // Create players table
+    // Players table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS players (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
+        avatar_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Create games table
+    // Games table with variant support
     await pool.query(`
       CREATE TABLE IF NOT EXISTS games (
         id SERIAL PRIMARY KEY,
         name VARCHAR(200) NOT NULL,
+        variant VARCHAR(20) NOT NULL DEFAULT 'taiwan',
         status VARCHAR(20) DEFAULT 'active',
+        settings JSONB DEFAULT '{}',
+        current_round INTEGER DEFAULT 1,
+        current_wind VARCHAR(10) DEFAULT '東',
+        dealer_repeat INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP
       )
     `);
 
-    // Create game_players table (many-to-many)
+    // Game players with stats
     await pool.query(`
       CREATE TABLE IF NOT EXISTS game_players (
         id SERIAL PRIMARY KEY,
         game_id INTEGER REFERENCES games(id) ON DELETE CASCADE,
         player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+        seat_position INTEGER NOT NULL,
         final_score INTEGER DEFAULT 0,
+        is_dealer BOOLEAN DEFAULT FALSE,
+        -- Statistics
+        wins INTEGER DEFAULT 0,
+        self_draws INTEGER DEFAULT 0,
+        deal_ins INTEGER DEFAULT 0,
+        riichi_count INTEGER DEFAULT 0,
         UNIQUE(game_id, player_id)
       )
     `);
 
-    // Create rounds table
+    // Rounds with full scoring details
     await pool.query(`
       CREATE TABLE IF NOT EXISTS rounds (
         id SERIAL PRIMARY KEY,
         game_id INTEGER REFERENCES games(id) ON DELETE CASCADE,
         round_number INTEGER NOT NULL,
+        round_wind VARCHAR(10) NOT NULL,
+        hand_number INTEGER NOT NULL,
         dealer_id INTEGER REFERENCES players(id),
-        winner_id INTEGER REFERENCES players(id),
+        dealer_position INTEGER,
+        
+        -- Results (support multiple winners for 一炮多響)
+        winner_ids INTEGER[] DEFAULT '{}',
         loser_id INTEGER REFERENCES players(id),
-        hand_type VARCHAR(50),
-        points INTEGER DEFAULT 0,
+        is_self_draw BOOLEAN DEFAULT FALSE,
+        
+        -- Scoring
+        hand_type VARCHAR(100),
+        base_tai INTEGER DEFAULT 0,
+        dealer_repeat INTEGER DEFAULT 0,
+        total_points INTEGER DEFAULT 0,
+        
+        -- Special flags
+        is_bao_zimo BOOLEAN DEFAULT FALSE,
+        is_liichi BOOLEAN DEFAULT FALSE,
+        is_kong BOOLEAN DEFAULT FALSE,
+        is_surrender BOOLEAN DEFAULT FALSE,
+        is_false_win BOOLEAN DEFAULT FALSE,
+        is_exhaustive_draw BOOLEAN DEFAULT FALSE,
+        
+        -- Calculated scores per player (JSON)
+        player_scores JSONB DEFAULT '{}',
+        
+        notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Create transactions table
+    // Hand details for multi-hand support
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS round_hands (
+        id SERIAL PRIMARY KEY,
+        round_id INTEGER REFERENCES rounds(id) ON DELETE CASCADE,
+        hand_index INTEGER NOT NULL,
+        hand_type VARCHAR(100) NOT NULL,
+        tai INTEGER DEFAULT 0,
+        points INTEGER DEFAULT 0
+      )
+    `);
+
+    // Transactions for settlements
     await pool.query(`
       CREATE TABLE IF NOT EXISTS transactions (
         id SERIAL PRIMARY KEY,
@@ -62,9 +110,41 @@ export async function POST() {
       )
     `);
 
-    return NextResponse.json({ message: 'Database initialized successfully' });
-  } catch (error) {
+    // Game history / undo stack
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS game_history (
+        id SERIAL PRIMARY KEY,
+        game_id INTEGER REFERENCES games(id) ON DELETE CASCADE,
+        action_type VARCHAR(50) NOT NULL,
+        action_data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Player statistics across all games
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_stats (
+        id SERIAL PRIMARY KEY,
+        player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+        variant VARCHAR(20),
+        games_played INTEGER DEFAULT 0,
+        total_score BIGINT DEFAULT 0,
+        wins INTEGER DEFAULT 0,
+        self_draws INTEGER DEFAULT 0,
+        deal_ins INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(player_id, variant)
+      )
+    `);
+
     return NextResponse.json({ 
+      success: true,
+      message: 'Database initialized successfully with full Mahjong Ledger schema'
+    });
+  } catch (error) {
+    console.error('Database initialization error:', error);
+    return NextResponse.json({ 
+      success: false,
       error: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
   }
