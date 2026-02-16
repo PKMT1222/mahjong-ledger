@@ -145,24 +145,34 @@ export default function GamePage() {
     
     // Use custom rule if available
     if (customRule) {
-      const result = calculateCustomScore(
+      // First calculate normal self-draw to get per-player payment
+      const normalResult = calculateCustomScore(
         customRule,
         totalValue,
-        isSelfDraw,
+        false, // Calculate normal first to get base
         isDealer || false
       );
       
-      // Calculate total for bao self-draw (per player payment * number of other players)
-      const otherPlayerCount = players.length - 1;
-      const selfDrawTotal = result.winnerPoints * otherPlayerCount;
+      // Then calculate self-draw
+      const selfDrawResult = calculateCustomScore(
+        customRule,
+        totalValue,
+        true,
+        isDealer || false
+      );
+      
+      // For bao self-draw: the total is the same as normal self-draw total
+      // selfDrawResult.winnerPoints is already the total (per-player * 3 for 4-player game)
+      // For bao, the payer pays this total amount
+      const selfDrawTotal = selfDrawResult.winnerPoints;
       
       return {
         base: totalValue,
-        final: result.winnerPoints,
-        breakdown: result.breakdown,
+        final: selfDrawResult.winnerPoints, // Total for display
+        breakdown: selfDrawResult.breakdown,
         payments: {
-          winner: result.winnerPoints,
-          losers: result.loserPoints,
+          winner: selfDrawResult.winnerPoints,
+          losers: selfDrawResult.loserPoints,
         },
         totalWinners: winnerIds.length,
         selfDrawTotal
@@ -179,9 +189,9 @@ export default function GamePage() {
       honba: 0,
     }, config);
     
-    // Calculate total for bao self-draw
-    const otherPlayerCount = players.length - 1;
-    const selfDrawTotal = result.winnerPoints * otherPlayerCount;
+    // For bao self-draw: use the already calculated self-draw total
+    // result.winnerPoints is already the total (per-player * 3 for 4-player game)
+    const selfDrawTotal = result.winnerPoints;
     
     return {
       base: totalValue,
@@ -707,7 +717,7 @@ export default function GamePage() {
                           <p className="text-sm text-amber-700 mt-2">
                             包家將支付全部 {getBaoSelfDrawTotal()} 分
                             <span className="text-xs text-gray-500 block">
-                              ({players.length - 1}人 × {calculateFinalScore().final}分)
+                              ({players.length - 1}人 × {Math.round(getBaoSelfDrawTotal() / (players.length - 1))}分/人)
                             </span>
                           </p>
                         )}
