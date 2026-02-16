@@ -40,6 +40,24 @@ export interface VariantConfig {
   paymentStructure: 'diff' | 'same'; // diff = different payment, same = same payment
 }
 
+// Standard Hong Kong Fan Points Table (Exponential)
+export const HONG_KONG_FAN_TABLE: Record<number, number> = {
+  0: 1,   // 雞胡 (Chicken Hand)
+  1: 2,   // 1番 = 2分
+  2: 4,   // 2番 = 4分
+  3: 8,   // 3番 = 8分
+  4: 16,  // 4番 = 16分
+  5: 24,  // 5番 = 24分 (some use 32)
+  6: 32,  // 6番 = 32分
+  7: 48,  // 7番 = 48分
+  8: 64,  // 8番 = 64分
+  9: 96,  // 9番 = 96分
+  10: 128, // 10番 = 128分
+  11: 192, // 11番 = 192分
+  12: 256, // 12番 = 256分
+  13: 384, // 13番 = 384分 (Max)
+};
+
 // Variant Configurations
 export const VARIANT_CONFIGS: Record<GameVariant, VariantConfig> = {
   hongkong: {
@@ -47,9 +65,9 @@ export const VARIANT_CONFIGS: Record<GameVariant, VariantConfig> = {
     name: '香港麻雀',
     nameEn: 'Hong Kong Mahjong',
     description: '13張 · 番數制 · 全銃/半銃',
-    basePoints: 1,
+    basePoints: 1, // Base unit, actual points from HONG_KONG_FAN_TABLE
     scoringUnit: '番',
-    selfDrawMultiplier: 2,
+    selfDrawMultiplier: 1.5, // 自摸 ×1.5 (each player pays this amount)
     dealerBonus: 0,
     dealerRepeatBonus: 0,
     hasFlowers: true,
@@ -133,24 +151,53 @@ export const VARIANT_CONFIGS: Record<GameVariant, VariantConfig> = {
 // Hand types by variant
 export const HAND_TYPES_BY_VARIANT: Record<GameVariant, { name: string; value: number; category: string }[]> = {
   hongkong: [
+    // Basic Hands (基本)
     { name: '雞胡', value: 0, category: 'basic' },
-    { name: '無花', value: 1, category: 'flower' },
+    { name: '無花', value: 1, category: 'basic' },
+    
+    // Flower Hands (花牌) - Common HK rule: flowers = +1 fan each, max 2
     { name: '正花', value: 1, category: 'flower' },
+    { name: '一花', value: 1, category: 'flower' },
+    { name: '兩花', value: 2, category: 'flower' },
+    { name: '三花', value: 3, category: 'flower' },
+    { name: '四花', value: 4, category: 'flower' },
+    
+    // Win Methods (食糊方式)
     { name: '自摸', value: 1, category: 'win' },
+    { name: '門前清', value: 1, category: 'win' },
+    { name: '河底撈魚', value: 1, category: 'win' },
+    
+    // Combination Hands (組合)
+    { name: '一般高', value: 1, category: 'combination' },
     { name: '碰碰胡', value: 3, category: 'combination' },
+    { name: '對對糊', value: 3, category: 'combination' },
+    { name: '七對', value: 4, category: 'combination' },
+    { name: '豪華七對', value: 7, category: 'combination' },
+    
+    // Suit Hands (花色)
     { name: '混一色', value: 3, category: 'suit' },
     { name: '清一色', value: 7, category: 'suit' },
-    { name: '混么九', value: 7, category: 'terminal' },
+    
+    // Terminal & Honor (么九、番子)
+    { name: '混么九', value: 4, category: 'terminal' },
     { name: '清么九', value: 7, category: 'terminal' },
     { name: '小三元', value: 5, category: 'honor' },
     { name: '大三元', value: 8, category: 'honor' },
     { name: '小四喜', value: 10, category: 'honor' },
     { name: '大四喜', value: 13, category: 'honor' },
     { name: '字一色', value: 13, category: 'honor' },
-    { name: '十三么', value: 13, category: 'special' },
+    
+    // Kong Related (槓牌)
+    { name: '暗槓', value: 1, category: 'kong' },
+    { name: '明槓', value: 0, category: 'kong' },
     { name: '槓上開花', value: 3, category: 'kong' },
     { name: '搶槓', value: 3, category: 'kong' },
-    { name: '七對', value: 4, category: 'combination' },
+    
+    // Special (特殊牌型)
+    { name: '十三么', value: 13, category: 'special' },
+    { name: '十八羅漢', value: 13, category: 'special' },
+    { name: '天胡', value: 13, category: 'special' },
+    { name: '地胡', value: 13, category: 'special' },
   ],
   
   taiwan: [
@@ -240,23 +287,34 @@ export const HAND_TYPES_BY_VARIANT: Record<GameVariant, { name: string; value: n
 
 // Scoring Functions
 export function calculateHongKongScore(
-  tai: number,
+  fan: number,
   isSelfDraw: boolean,
   isDealer: boolean,
   config: VariantConfig
 ): { winnerPoints: number; loserPoints: number; breakdown: string } {
-  let points = tai * config.basePoints;
-  let breakdown = `${tai}番 × ${config.basePoints} = ${points}`;
+  // Use Hong Kong fan table for standard scoring
+  const basePoints = HONG_KONG_FAN_TABLE[fan] || fan * 2;
+  let breakdown = `${fan}番 = ${basePoints}分`;
   
   if (isSelfDraw) {
-    points *= config.selfDrawMultiplier;
-    breakdown += ` × ${config.selfDrawMultiplier} (自摸)`;
+    // Self-draw: each player pays basePoints × selfDrawMultiplier
+    // Winner gets paid by all 3 other players
+    const perPersonPayment = Math.round(basePoints * config.selfDrawMultiplier);
+    const totalWin = perPersonPayment * 3;
+    breakdown += ` × ${config.selfDrawMultiplier} (自摸) = ${perPersonPayment}分/人`;
+    
+    return {
+      winnerPoints: totalWin,
+      loserPoints: -perPersonPayment,
+      breakdown,
+    };
   }
   
-  // In Hong Kong, dealer doesn't get special bonus
+  // Discard (出銃): loser pays full amount
+  breakdown += ' (出銃)';
   return {
-    winnerPoints: points,
-    loserPoints: -points,
+    winnerPoints: basePoints,
+    loserPoints: -basePoints,
     breakdown,
   };
 }
