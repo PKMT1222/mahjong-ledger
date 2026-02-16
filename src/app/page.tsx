@@ -11,6 +11,7 @@ export default function Home() {
   const [stats, setStats] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'stats'>('home');
   const [deletingGameId, setDeletingGameId] = useState<number | null>(null);
+  const [deletingPlayerId, setDeletingPlayerId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -93,6 +94,38 @@ export default function Home() {
       setToast({ message: '', visible: false });
     }, 2000);
   }, []);
+
+  async function deletePlayer(id: number, name: string) {
+    const message = `確定要刪除玩家 "${name}" 嗎？\n\n⚠️ 警告：此玩家所有對局記錄將會保留，但無法再選擇此玩家。`;
+    
+    if (!confirm(message)) return;
+    
+    // Prevent double-click
+    if (deletingPlayerId !== null) return;
+    
+    const playerIdToDelete = id;
+    setDeletingPlayerId(playerIdToDelete);
+    
+    try {
+      console.log('Deleting player ID:', playerIdToDelete);
+      const res = await fetch(`/api/players?id=${playerIdToDelete}`, { method: 'DELETE' });
+      
+      if (res.ok) {
+        await fetchData();
+        setDeletingPlayerId(null);
+        showToast('✅ 玩家已刪除');
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Delete player failed:', errorData);
+        setDeletingPlayerId(null);
+        alert('❌ 刪除失敗: ' + (errorData.error || `HTTP ${res.status}`));
+      }
+    } catch (error: any) {
+      console.error('Delete player error:', error);
+      setDeletingPlayerId(null);
+      alert('❌ 刪除失敗: ' + error.message);
+    }
+  }
 
   // Calculate win rate
   function calculateWinRate(playerId: number) {
@@ -206,7 +239,12 @@ export default function Home() {
               <h2 className="font-bold text-gray-800 mb-3">玩家一覽 ({players.length})</h2>
               <div className="grid grid-cols-2 gap-2">
                 {players.slice(0, 8).map((p, i) => (
-                  <div key={p.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                  <AnimatedCard
+                    key={p.id}
+                    isDeleting={deletingPlayerId === p.id}
+                    deleteDirection="left"
+                    className="flex items-center gap-2 p-2 bg-gray-50 rounded group"
+                  >
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
                       ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500'][i % 4]
                     }`}>
@@ -216,7 +254,15 @@ export default function Home() {
                       <p className="font-medium text-sm truncate">{p.name}</p>
                       <p className="text-xs text-gray-500">{calculateWinRate(p.id)}% 勝率</p>
                     </div>
-                  </div>
+                    <IconButton
+                      onClick={() => deletePlayer(p.id, p.name)}
+                      variant="delete"
+                      className="opacity-0 group-hover:opacity-100 !p-1"
+                      title="刪除玩家"
+                    >
+                      🗑️
+                    </IconButton>
+                  </AnimatedCard>
                 ))}
               </div>
             </div>
