@@ -43,7 +43,6 @@ export default function Home() {
       return;
     }
     
-    // Use first 4 players
     const selectedPlayers = players.slice(0, 4).map(p => p.id);
     
     const res = await fetch('/api/games', {
