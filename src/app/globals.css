@@ -1,9 +1,73 @@
 @import "tailwindcss";
 
+/* ========================================
+   CSS VARIABLES FOR THEMING
+   ======================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Default Theme (Classic Red/White) */
+  --color-primary: #dc2626;
+  --color-primary-dark: #991b1b;
+  --color-secondary: #f3f4f6;
+  --color-accent: #fbbf24;
+  --color-background: #f3f4f6;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-danger: #dc2626;
+  
+  /* Legacy variables for backward compatibility */
+  --background: #f3f4f6;
+  --foreground: #111827;
 }
+
+/* Ocean Professional Theme */
+[data-theme="ocean"] {
+  --color-primary: #0d9488;
+  --color-primary-dark: #0f766e;
+  --color-secondary: #f0fdfa;
+  --color-accent: #14b8a6;
+  --color-background: linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 50%, #99f6e4 100%);
+  --color-surface: rgba(255, 255, 255, 0.95);
+  --color-surface-elevated: #ffffff;
+  --color-text: #134e4a;
+  --color-text-muted: #0d9488;
+  --color-border: #99f6e4;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  
+  --background: #f0fdfa;
+  --foreground: #134e4a;
+}
+
+/* Dark Elite Theme */
+[data-theme="elite"] {
+  --color-primary: #f59e0b;
+  --color-primary-dark: #d97706;
+  --color-secondary: #1f2937;
+  --color-accent: #fbbf24;
+  --color-background: #0f172a;
+  --color-surface: rgba(31, 41, 55, 0.9);
+  --color-surface-elevated: #1f2937;
+  --color-text: #f9fafb;
+  --color-text-muted: #9ca3af;
+  --color-border: #374151;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  
+  --background: #0f172a;
+  --foreground: #f9fafb;
+}
+
+/* ========================================
+   BASE STYLES
+   ======================================== */
 
 @theme inline {
   --color-background: var(--background);
@@ -12,17 +76,159 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ========================================
+   THEME-AWARE UTILITY CLASSES
+   ======================================== */
+
+/* Background colors */
+.bg-theme-primary { background-color: var(--color-primary); }
+.bg-theme-primary-dark { background-color: var(--color-primary-dark); }
+.bg-theme-secondary { background-color: var(--color-secondary); }
+.bg-theme-surface { background-color: var(--color-surface); }
+.bg-theme-surface-elevated { background-color: var(--color-surface-elevated); }
+
+/* Text colors */
+.text-theme-primary { color: var(--color-primary); }
+.text-theme-text { color: var(--color-text); }
+.text-theme-text-muted { color: var(--color-text-muted); }
+.text-theme-accent { color: var(--color-accent); }
+
+/* Border colors */
+.border-theme { border-color: var(--color-border); }
+.border-theme-primary { border-color: var(--color-primary); }
+
+/* ========================================
+   CUSTOM COMPONENTS
+   ======================================== */
+
+/* Header */
+.app-header {
+  background-color: var(--color-primary);
+  color: white;
+  border-bottom: 2px solid var(--color-primary-dark);
+}
+
+/* Cards */
+.app-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="elite"] .app-card {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background-color: var(--color-secondary);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+/* Inputs */
+.app-input {
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+}
+
+.app-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Wind badges */
+.wind-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* Scrollbar theming */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-dark);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+/* Transitions for smooth theme switching */
+* {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
+/* Ocean theme specific - gradient background fix */
+[data-theme="ocean"] body {
+  background: linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 50%, #99f6e4 100%);
+  background-attachment: fixed;
+}
+
+/* Elite theme specific - subtle pattern */
+[data-theme="elite"] body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(245, 158, 11, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(245, 158, 11, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 /* ========================================
