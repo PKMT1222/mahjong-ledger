@@ -146,10 +146,14 @@ export default function GamePage() {
     
     const score = calculateFinalScore();
     
+    // Get current dealer
+    const currentDealer = players.find(p => p.is_dealer);
+    
     const res = await fetch(`/api/games/${gameId}/rounds`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        dealer_id: currentDealer?.id,
         winner_ids: [parseInt(winnerId)],
         loser_id: isSelfDraw ? null : parseInt(loserId),
         is_self_draw: isSelfDraw,
@@ -167,6 +171,10 @@ export default function GamePage() {
     if (res.ok) {
       resetForm();
       fetchGameData();
+    } else {
+      const errorData = await res.json();
+      alert('記錄失敗: ' + (errorData.error || errorData.message || 'Unknown error'));
+      console.error('Record error:', errorData);
     }
   }
 
