@@ -50,24 +50,34 @@ export default function Home() {
     
     if (!confirm(message)) return;
     
+    // Prevent double-click during animation
+    if (deletingGameId !== null) return;
+    
+    // Capture ID in local variable to avoid closure issues
+    const gameIdToDelete = id;
+    
     // Start delete animation
-    setDeletingGameId(id);
+    setDeletingGameId(gameIdToDelete);
     
     // Wait for animation to complete before actually deleting
     setTimeout(async () => {
       try {
-        const res = await fetch(`/api/games?id=${id}`, { method: 'DELETE' });
+        console.log('Deleting game ID:', gameIdToDelete);
+        const res = await fetch(`/api/games?id=${gameIdToDelete}`, { method: 'DELETE' });
+        
         if (res.ok) {
           await fetchData();
           setDeletingGameId(null);
           // Show toast notification instead of alert
           showToast('✅ 對局已刪除');
         } else {
-          const error = await res.json();
+          const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+          console.error('Delete failed:', errorData);
           setDeletingGameId(null);
-          alert('❌ 刪除失敗: ' + (error.error || 'Unknown error'));
+          alert('❌ 刪除失敗: ' + (errorData.error || `HTTP ${res.status}`));
         }
       } catch (error: any) {
+        console.error('Delete error:', error);
         setDeletingGameId(null);
         alert('❌ 刪除失敗: ' + error.message);
       }
