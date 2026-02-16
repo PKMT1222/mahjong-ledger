@@ -85,26 +85,43 @@ export default function Home() {
     paoma: '跑馬仔',
   };
 
+  // Player colors for avatars
+  const playerColors = ['#0D9488', '#7C3AED', '#EA580C', '#0891B2'];
+
   return (
-    <div className="min-h-screen pb-8" style={{ background: 'var(--color-background)' }}>
-      {/* Header */}
-      <header className="app-header p-4">
+    <div className="min-h-screen pb-8" style={{ background: '#F8FAFC' }}>
+      {/* Header - New Teal Design */}
+      <header className="p-4" style={{ 
+        background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)',
+        color: 'white',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+      }}>
         <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between mb-3">
-            <h1 className="text-xl font-bold">🇭🇰 {t('appTitle')}</h1>
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              <span>🀄</span> {t('appTitle')}
+            </h1>
             <div className="flex items-center gap-2">
               <Link 
+                href="/design-preview" 
+                className="text-xs px-3 py-2 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)' }}
+                title="設計預覽"
+              >
+                🎨
+              </Link>
+              <Link 
                 href="/settings" 
-                className="text-xs px-3 py-1 rounded"
-                style={{ backgroundColor: 'var(--color-primary-dark)' }}
+                className="text-xs px-3 py-2 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)' }}
               >
                 ⚙️
               </Link>
             </div>
           </div>
           
-          {/* Navigation */}
-          <div className="flex rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--color-primary-dark)' }}>
+          {/* Navigation - Modern Tab Bar */}
+          <div className="flex rounded-xl p-1 gap-1" style={{ backgroundColor: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(4px)' }}>
             {[
               { id: 'home', label: t('home'), icon: '🏠', href: null },
               { id: 'history', label: t('history'), icon: '📜', href: null },
@@ -114,10 +131,10 @@ export default function Home() {
                 <Link
                   key={tab.id}
                   href={tab.href}
-                  className="flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-all"
+                  className="flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 rounded-lg transition-all"
                   style={{
                     backgroundColor: 'transparent',
-                    color: 'white',
+                    color: 'rgba(255,255,255,0.7)',
                   }}
                 >
                   <span>{tab.icon}</span>
@@ -127,10 +144,11 @@ export default function Home() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className="flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-all"
+                  className="flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 rounded-lg transition-all"
                   style={{
-                    backgroundColor: activeTab === tab.id ? 'var(--color-primary)' : 'transparent',
+                    backgroundColor: activeTab === tab.id ? '#0D9488' : 'transparent',
                     color: 'white',
+                    boxShadow: activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.2)' : 'none'
                   }}
                 >
                   <span>{tab.icon}</span>
@@ -146,89 +164,95 @@ export default function Home() {
         {/* HOME TAB */}
         {activeTab === 'home' && (
           <div className="space-y-4">
-            {/* Quick Start */}
+            {/* Quick Start - Modern FAB-style Button */}
             <Link 
               href="/new-game"
-              className="block w-full py-4 rounded-lg font-bold text-lg shadow-lg text-center transition-all hover:transform hover:-translate-y-0.5"
+              className="block w-full py-4 rounded-2xl font-bold text-lg text-center transition-all hover:transform hover:-translate-y-1 hover:shadow-xl active:transform active:translate-y-0 active:scale-[0.98]"
               style={{ 
-                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
+                background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)',
                 color: 'white',
+                boxShadow: '0 10px 25px -5px rgba(13, 148, 136, 0.4)',
               }}
             >
-              🀄 {t('newGame')}
+              <span className="flex items-center justify-center gap-2">
+                <span className="text-2xl">🀄</span>
+                <span>{t('newGame')}</span>
+              </span>
             </Link>
 
-            {/* Active Games */}
+            {/* Active Games - Modern Card Design */}
             {games.filter(g => g.status === 'active').length > 0 && (
-              <div className="app-card p-4">
-                <h2 className="font-bold mb-3" style={{ color: 'var(--color-text)' }}>
+              <div className="bg-white rounded-2xl p-4 shadow-md" style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                <h2 className="font-bold mb-3 text-slate-800 text-sm uppercase tracking-wide">
                   {t('active')} {t('games')}
                 </h2>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {games.filter(g => g.status === 'active').map(game => (
                     <div 
                       key={game.id}
-                      className="flex items-center justify-between p-3 rounded-lg group"
+                      className="group relative overflow-hidden rounded-xl transition-all hover:shadow-lg"
                       style={{ 
-                        backgroundColor: 'var(--color-secondary)',
-                        border: '1px solid var(--color-border)',
+                        background: 'linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 100%)',
+                        border: '1px solid #E2E8F0',
                       }}
                     >
                       <Link 
                         href={`/game/${game.id}`}
-                        className="flex-1"
+                        className="flex items-center justify-between p-4"
                       >
-                        <p className="font-medium" style={{ color: 'var(--color-text)' }}>{game.name}</p>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          {t('round')} {game.current_round} · {variantNames[game.variant] || game.variant}
-                        </p>
+                        <div className="flex-1">
+                          <p className="font-semibold text-slate-800 text-lg">{game.name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">
+                              {variantNames[game.variant] || game.variant}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              第 {game.current_round} 局
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-teal-600">
+                            進行中 →
+                          </span>
+                        </div>
                       </Link>
-                      <div className="flex items-center gap-2">
-                        <Link 
-                          href={`/game/${game.id}`}
-                          style={{ color: 'var(--color-success)' }}
-                        >
-                          {t('active')} →
-                        </Link>
-                        <button
-                          onClick={() => deleteGame(game.id, game.name, true)}
-                          className="opacity-0 group-hover:opacity-100 text-xs px-2 py-1 transition"
-                          style={{ color: 'var(--color-danger)' }}
-                          title={t('deleteGame')}
-                        >
-                          🗑️
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => deleteGame(game.id, game.name, true)}
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all p-2 rounded-full hover:bg-red-50"
+                        style={{ color: '#DC2626' }}
+                        title={t('deleteGame')}
+                      >
+                        🗑️
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Player Overview */}
-            <div className="app-card p-4">
-              <h2 className="font-bold mb-3" style={{ color: 'var(--color-text)' }}>
-                {t('players')} ({players.length})
+            {/* Player Overview - Modern Design */}
+            <div className="bg-white rounded-2xl p-4 shadow-md" style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+              <h2 className="font-bold mb-3 text-slate-800 text-sm uppercase tracking-wide">
+                {t('players')} <span className="text-slate-400 font-normal">({players.length})</span>
               </h2>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 {players.slice(0, 8).map((p, i) => (
                   <div 
                     key={p.id} 
-                    className="flex items-center gap-2 p-2 rounded-lg"
-                    style={{ backgroundColor: 'var(--color-secondary)' }}
+                    className="flex items-center gap-3 p-3 rounded-xl transition-all hover:shadow-md"
+                    style={{ backgroundColor: '#F8FAFC', border: '1px solid #F1F5F9' }}
                   >
                     <div 
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                      style={{ 
-                        backgroundColor: ['var(--color-primary)', '#3b82f6', 'var(--color-success)', 'var(--color-warning)'][i % 4]
-                      }}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm"
+                      style={{ backgroundColor: playerColors[i % 4] }}
                     >
                       {p.name.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate" style={{ color: 'var(--color-text)' }}>{p.name}</p>
-                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        {calculateWinRate(p.id)}% {t('winRate')}
+                      <p className="font-semibold text-sm truncate text-slate-800">{p.name}</p>
+                      <p className="text-xs text-slate-500">
+                        勝率 {calculateWinRate(p.id)}%
                       </p>
                     </div>
                   </div>
@@ -236,33 +260,33 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Quick Stats */}
+            {/* Quick Stats - Modern Stat Cards */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { value: games.length, label: t('totalGames'), color: 'var(--color-primary)' },
-                { value: games.filter(g => g.status === 'active').length, label: t('activeGames'), color: 'var(--color-success)' },
-                { value: players.length, label: t('players'), color: '#3b82f6' },
+                { value: games.length, label: t('totalGames'), color: '#0D9488', bgColor: '#F0FDFA' },
+                { value: games.filter(g => g.status === 'active').length, label: t('activeGames'), color: '#059669', bgColor: '#D1FAE5' },
+                { value: players.length, label: t('players'), color: '#7C3AED', bgColor: '#F3E8FF' },
               ].map((stat, i) => (
                 <div 
                   key={i} 
-                  className="app-card p-3 text-center"
+                  className="rounded-2xl p-4 text-center transition-all hover:shadow-lg"
+                  style={{ backgroundColor: stat.bgColor, border: `1px solid ${stat.color}20` }}
                 >
-                  <p className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{stat.label}</p>
+                  <p className="text-3xl font-extrabold" style={{ color: stat.color }}>{stat.value}</p>
+                  <p className="text-xs font-medium mt-1" style={{ color: stat.color, opacity: 0.8 }}>{stat.label}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* HISTORY TAB */}
+        {/* HISTORY TAB - Modern Design */}
         {activeTab === 'history' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>{t('history')}</h2>
+              <h2 className="text-lg font-bold text-slate-800">{t('history')}</h2>
               <select 
-                className="text-sm rounded px-2 py-1 app-input"
-                style={{ backgroundColor: 'var(--color-surface)' }}
+                className="text-sm rounded-xl px-3 py-2 border-2 border-slate-200 focus:border-teal-500 focus:outline-none bg-white"
               >
                 <option>全部規則</option>
                 <option>香港麻雀</option>
@@ -272,25 +296,30 @@ export default function Home() {
 
             <div className="space-y-3">
               {games.length === 0 ? (
-                <p className="text-center py-8" style={{ color: 'var(--color-text-muted)' }}>暫無歷史紀錄</p>
+                <div className="text-center py-12 bg-white rounded-2xl shadow-sm">
+                  <p className="text-4xl mb-3">📜</p>
+                  <p className="text-slate-500">暫無歷史紀錄</p>
+                </div>
               ) : (
                 games.map(game => (
-                  <div key={game.id} className="app-card p-4">
+                  <div key={game.id} className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between">
                       <Link href={`/game/${game.id}`} className="flex-1">
-                        <h3 className="font-bold" style={{ color: 'var(--color-text)' }}>{game.name}</h3>
-                        <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                        <h3 className="font-bold text-slate-800">{game.name}</h3>
+                        <p className="text-sm text-slate-500 mt-1">
                           {new Date(game.created_at).toLocaleDateString('zh-HK')} · 
-                          {variantNames[game.variant] || game.variant}
+                          <span className="ml-1 px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-medium">
+                            {variantNames[game.variant] || game.variant}
+                          </span>
                         </p>
-                        <div className="flex gap-1 mt-2 flex-wrap">
+                        <div className="flex gap-2 mt-3 flex-wrap">
                           {game.players?.slice(0, 4).map((p: any) => (
                             <span 
                               key={p.id} 
-                              className="text-xs px-2 py-0.5 rounded"
+                              className="text-xs px-3 py-1 rounded-full font-medium"
                               style={{
-                                backgroundColor: p.final_score > 0 ? 'rgba(22, 163, 74, 0.1)' : p.final_score < 0 ? 'rgba(220, 38, 38, 0.1)' : 'var(--color-secondary)',
-                                color: p.final_score > 0 ? 'var(--color-success)' : p.final_score < 0 ? 'var(--color-danger)' : 'var(--color-text-muted)',
+                                backgroundColor: p.final_score > 0 ? '#D1FAE5' : p.final_score < 0 ? '#FEE2E2' : '#F1F5F9',
+                                color: p.final_score > 0 ? '#059669' : p.final_score < 0 ? '#DC2626' : '#64748B',
                               }}
                             >
                               {p.name} {p.final_score > 0 ? '+' : ''}{p.final_score}
@@ -300,18 +329,18 @@ export default function Home() {
                       </Link>
                       <div className="flex flex-col items-end gap-2">
                         <span 
-                          className="text-xs px-2 py-1 rounded"
+                          className="text-xs px-3 py-1 rounded-full font-medium"
                           style={{
-                            backgroundColor: game.status === 'active' ? 'rgba(22, 163, 74, 0.1)' : 'var(--color-secondary)',
-                            color: game.status === 'active' ? 'var(--color-success)' : 'var(--color-text-muted)',
+                            backgroundColor: game.status === 'active' ? '#D1FAE5' : '#F1F5F9',
+                            color: game.status === 'active' ? '#059669' : '#64748B'
                           }}
                         >
                           {game.status === 'active' ? t('active') : t('completed')}
                         </span>
                         <button
                           onClick={() => deleteGame(game.id, game.name, game.status === 'active')}
-                          className="text-xs hover:underline"
-                          style={{ color: 'var(--color-danger)' }}
+                          className="text-xs px-3 py-1.5 rounded-full hover:bg-red-50 transition-colors font-medium"
+                          style={{ color: '#DC2626' }}
                         >
                           {t('deleteGame')}
                         </button>
@@ -324,13 +353,16 @@ export default function Home() {
           </div>
         )}
 
-        {/* STATS TAB */}
+        {/* STATS TAB - Modern Design */}
         {activeTab === 'stats' && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>{t('statistics')}</h2>
+            <h2 className="text-lg font-bold text-slate-800">{t('statistics')}</h2>
             
             {players.length === 0 ? (
-              <p className="text-center py-8" style={{ color: 'var(--color-text-muted)' }}>暫無數據</p>
+              <div className="text-center py-12 bg-white rounded-2xl shadow-sm">
+                <p className="text-4xl mb-3">📊</p>
+                <p className="text-slate-500">暫無數據</p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {players
@@ -341,17 +373,20 @@ export default function Home() {
                     const gamesPlayed = stats?.playerStats?.find((s: any) => s.player_id === player.id)?.games_played || 0;
                     
                     return (
-                      <div key={player.id} className="app-card p-4">
-                        <div className="flex items-center justify-between mb-2">
+                      <div key={player.id} className="bg-white rounded-2xl p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <span className="text-2xl">
                               {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '•'}
                             </span>
-                            <span className="font-bold text-lg" style={{ color: 'var(--color-text)' }}>{player.name}</span>
+                            <div>
+                              <span className="font-bold text-lg text-slate-800 block">{player.name}</span>
+                              <span className="text-xs text-slate-500">排名 #{index + 1}</span>
+                            </div>
                           </div>
                           <span 
-                            className="text-xl font-bold"
-                            style={{ color: profit >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}
+                            className="text-2xl font-extrabold"
+                            style={{ color: profit >= 0 ? '#059669' : '#DC2626' }}
                           >
                             {profit > 0 ? '+' : ''}{profit}
                           </span>
@@ -359,17 +394,17 @@ export default function Home() {
                         
                         <div className="grid grid-cols-3 gap-2 text-center">
                           {[
-                            { value: gamesPlayed, label: '對局數' },
-                            { value: winRate + '%', label: t('winRate') },
-                            { value: player.wins || 0, label: '食糊' },
+                            { value: gamesPlayed, label: '對局數', color: '#0D9488' },
+                            { value: winRate + '%', label: t('winRate'), color: '#7C3AED' },
+                            { value: player.wins || 0, label: '食糊', color: '#EA580C' },
                           ].map((stat, i) => (
                             <div 
                               key={i}
-                              className="rounded p-2"
-                              style={{ backgroundColor: 'var(--color-secondary)' }}
+                              className="rounded-xl p-3"
+                              style={{ backgroundColor: `${stat.color}15` }}
                             >
-                              <p className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>{stat.value}</p>
-                              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{stat.label}</p>
+                              <p className="text-lg font-bold" style={{ color: stat.color }}>{stat.value}</p>
+                              <p className="text-xs text-slate-500 font-medium">{stat.label}</p>
                             </div>
                           ))}
                         </div>
@@ -379,24 +414,24 @@ export default function Home() {
               </div>
             )}
 
-            {/* Overall Stats */}
+            {/* Overall Stats - Modern */}
             {stats && (
-              <div className="app-card p-4">
-                <h3 className="font-bold mb-3" style={{ color: 'var(--color-text)' }}>整體統計</h3>
+              <div className="bg-white rounded-2xl p-4 shadow-sm">
+                <h3 className="font-bold mb-4 text-slate-800">整體統計</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div 
-                    className="text-center p-3 rounded"
-                    style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}
+                    className="text-center p-4 rounded-xl"
+                    style={{ backgroundColor: '#F0FDFA', border: '1px solid #0D948820' }}
                   >
-                    <p className="text-2xl font-bold" style={{ color: '#3b82f6' }}>{stats.totalGames || 0}</p>
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>總對局數</p>
+                    <p className="text-2xl font-bold text-teal-600">{stats.totalGames || 0}</p>
+                    <p className="text-xs font-medium text-teal-600 opacity-70">總對局數</p>
                   </div>
                   <div 
-                    className="text-center p-3 rounded"
-                    style={{ backgroundColor: 'rgba(22, 163, 74, 0.1)' }}
+                    className="text-center p-4 rounded-xl"
+                    style={{ backgroundColor: '#F3E8FF', border: '1px solid #7C3AED20' }}
                   >
-                    <p className="text-2xl font-bold" style={{ color: 'var(--color-success)' }}>{stats.totalRounds || 0}</p>
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>總局數</p>
+                    <p className="text-2xl font-bold text-purple-600">{stats.totalRounds || 0}</p>
+                    <p className="text-xs font-medium text-purple-600 opacity-70">總局數</p>
                   </div>
                 </div>
               </div>
