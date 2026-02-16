@@ -475,6 +475,19 @@ export default function GamePage() {
                 >
                   🌊 記錄流局
                 </button>
+                <div className="border-t pt-3 mt-3">
+                  <button 
+                    onClick={() => {
+                      if (confirm('確定要結束牌局嗎？\n\n結束後將進入找數頁面，不能再添加新回合。')) {
+                        window.location.href = `/game/${gameId}/settlement`;
+                      }
+                    }}
+                    className="w-full bg-green-600 text-white py-3 rounded-lg font-medium btn-press"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    ✅ 結束牌局
+                  </button>
+                </div>
               </div>
             ) : showDrawForm ? (
               <form onSubmit={recordDraw} className="space-y-4">
