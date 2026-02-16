@@ -9,13 +9,19 @@ export async function GET(
   try {
     const { id } = await params;
     
-    // Get game and settings
-    const gameResult = await pool.query(
-      'SELECT variant, settings FROM games WHERE id = $1',
-      [id]
-    );
+    // Get game and players
+    const gameResult = await pool.query(`
+      SELECT g.*, g.settings
+      FROM games g
+      WHERE g.id = $1
+    `, [id]);
+    
+    if (gameResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Game not found' }, { status: 404 });
+    }
+    
     const game = gameResult.rows[0];
-    const settings = JSON.parse(game.settings);
+    const settings = JSON.parse(game.settings || '{}');
     
     // Get all players with final scores
     const playersResult = await pool.query(`
@@ -34,64 +40,58 @@ export async function GET(
     `, [id]);
     
     const players = playersResult.rows;
+    const baseScore = settings.baseScore || 1;
     
-    // Calculate settlements based on variant
+    // Calculate settlements
+    // Winners (positive score) receive money from losers (negative score)
     const settlements: any[] = [];
+    const winners = players.filter((p: any) => p.final_score > 0);
+    const losers = players.filter((p: any) => p.final_score < 0);
     
-    if (game.variant === 'japanese') {
-      // Japanese: settle against return points
-      const returnPoints = settings.returnPoints || 30000;
-      const umaPoints = settings.umaPoints || [15000, 5000, -5000, -15000];
+    // For each winner, calculate how much they should receive
+    for (const winner of winners) {
+      let remainingToCollect = winner.final_score * baseScore;
       
-      for (let i = 0; i < players.length; i++) {
-        const player = players[i];
-        const diff = player.final_score - returnPoints;
-        const uma = umaPoints[i] || 0;
-        const final = Math.round((diff + uma) / 1000); // Convert to points
+      for (const loser of losers) {
+        if (remainingToCollect <= 0) break;
         
-        settlements.push({
-          ...player,
-          raw_score: player.final_score,
-          diff_from_return: diff,
-          uma: uma,
-          final_settlement: final,
-          rank: i + 1
-        });
-      }
-    } else {
-      // Other variants: simple ranking
-      for (let i = 0; i < players.length; i++) {
-        const player = players[i];
-        settlements.push({
-          ...player,
-          final_settlement: player.final_score,
-          rank: i + 1
-        });
-      }
-    }
-    
-    // Calculate who pays whom
-    const transactions: any[] = [];
-    for (const winner of settlements.filter(s => s.final_settlement > 0)) {
-      for (const loser of settlements.filter(s => s.final_settlement < 0)) {
-        // This is simplified - actual calculation would be more complex
-        transactions.push({
-          from: loser.name,
-          to: winner.name,
-          amount: Math.min(winner.final_settlement, Math.abs(loser.final_settlement))
-        });
+        const loserDebt = Math.abs(loser.final_score) * baseScore;
+        const amount = Math.min(remainingToCollect, loserDebt);
+        
+        if (amount > 0) {
+          settlements.push({
+            from: loser.name,
+            from_id: loser.player_id,
+            to: winner.name,
+            to_id: winner.player_id,
+            amount: amount,
+          });
+          remainingToCollect -= amount;
+        }
       }
     }
     
     return NextResponse.json({
-      variant: game.variant,
-      settings,
+      game: {
+        id: game.id,
+        name: game.name,
+        variant: game.variant,
+        status: game.status,
+      },
+      players,
+      baseScore,
       settlements,
-      transactions
+      summary: players.map((p: any) => ({
+        name: p.name,
+        score: p.final_score,
+        amount: p.final_score * baseScore,
+        isWinner: p.final_score > 0,
+      })),
     });
   } catch (error) {
+    console.error('Settlement calculation error:', error);
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

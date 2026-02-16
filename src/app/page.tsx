@@ -7,8 +7,8 @@ import { Player } from '@/types';
 export default function Home() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [games, setGames] = useState<any[]>([]);
-  const [newPlayerName, setNewPlayerName] = useState('');
-  const [showAddPlayer, setShowAddPlayer] = useState(false);
+  const [stats, setStats] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'home' | 'history' | 'stats'>('home');
 
   useEffect(() => {
     fetchData();
@@ -16,276 +16,290 @@ export default function Home() {
 
   async function fetchData() {
     try {
-      const [playersRes, gamesRes] = await Promise.all([
+      const [playersRes, gamesRes, statsRes] = await Promise.all([
         fetch('/api/players'),
-        fetch('/api/games')
+        fetch('/api/games'),
+        fetch('/api/stats')
       ]);
       
       if (playersRes.ok) {
-        const playersData = await playersRes.json();
-        if (Array.isArray(playersData)) {
-          setPlayers(playersData);
-        } else {
-          console.error('Players data is not an array:', playersData);
-          setPlayers([]);
-        }
-      } else {
-        const error = await playersRes.json();
-        console.error('Failed to fetch players:', error);
-        setPlayers([]);
+        const data = await playersRes.json();
+        setPlayers(Array.isArray(data) ? data : []);
       }
       
       if (gamesRes.ok) {
-        const gamesData = await gamesRes.json();
-        if (Array.isArray(gamesData)) {
-          setGames(gamesData);
-        } else {
-          console.error('Games data is not an array:', gamesData);
-          setGames([]);
-        }
-      } else {
-        const error = await gamesRes.json();
-        console.error('Failed to fetch games:', error);
-        setGames([]);
+        const data = await gamesRes.json();
+        setGames(Array.isArray(data) ? data : []);
+      }
+
+      if (statsRes.ok) {
+        const data = await statsRes.json();
+        setStats(data);
       }
     } catch (error: any) {
       console.error('Fetch error:', error);
-      alert('載入數據失敗，請檢查數據庫是否已初始化');
-    }
-  }
-
-  async function addPlayer(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/players', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newPlayerName })
-      });
-      if (res.ok) {
-        setNewPlayerName('');
-        setShowAddPlayer(false);
-        fetchData();
-      } else {
-        const error = await res.json();
-        alert('添加玩家失敗: ' + (error.error || 'Unknown error'));
-      }
-    } catch (error: any) {
-      alert('添加玩家失敗: ' + error.message);
-    }
-  }
-
-  async function quickStartGame() {
-    if (players.length < 4) {
-      alert('請先添加4位玩家');
-      return;
-    }
-    
-    try {
-      const selectedPlayers = players.slice(0, 4).map(p => p.id);
-      
-      const res = await fetch('/api/games', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name: '麻雀局', 
-          variant: 'hongkong',
-          playerIds: selectedPlayers,
-          customSettings: {
-            fullLiability: true,
-            selfDrawMultiplier: 2,
-          }
-        })
-      });
-      
-      if (res.ok) {
-        const game = await res.json();
-        window.location.href = `/game/${game.id}`;
-      } else {
-        const error = await res.json();
-        alert('開局失敗: ' + (error.error || 'Unknown error'));
-      }
-    } catch (error: any) {
-      alert('開局失敗: ' + error.message);
-    }
-  }
-
-  async function initDb() {
-    try {
-      const res = await fetch('/api/init', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        alert('✅ ' + data.message);
-      } else {
-        alert('❌ Error: ' + (data.error || 'Unknown error'));
-      }
-    } catch (error: any) {
-      alert('❌ Failed to initialize: ' + error.message);
-    }
-  }
-
-  async function deletePlayer(id: number, name: string) {
-    if (!confirm(`確定要刪除玩家 "${name}" 嗎？\n注意：這也會刪除該玩家的所有牌局紀錄。`)) {
-      return;
-    }
-    
-    try {
-      const res = await fetch(`/api/players?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchData();
-      } else {
-        const error = await res.json();
-        alert('刪除失敗: ' + (error.error || 'Unknown error'));
-      }
-    } catch (error: any) {
-      alert('刪除失敗: ' + error.message);
     }
   }
 
   async function deleteGame(id: number, name: string) {
-    if (!confirm(`確定要刪除牌局 "${name}" 嗎？\n此操作無法還原。`)) {
-      return;
-    }
+    if (!confirm(`確定要刪除牌局 "${name}" 嗎？`)) return;
     
     try {
       const res = await fetch(`/api/games?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchData();
-      } else {
-        const error = await res.json();
-        alert('刪除失敗: ' + (error.error || 'Unknown error'));
-      }
+      if (res.ok) fetchData();
     } catch (error: any) {
       alert('刪除失敗: ' + error.message);
     }
   }
 
+  // Calculate win rate
+  function calculateWinRate(playerId: number) {
+    if (!stats || !stats.playerStats) return 0;
+    const playerStat = stats.playerStats.find((s: any) => s.player_id === playerId);
+    if (!playerStat || playerStat.games_played === 0) return 0;
+    return Math.round((playerStat.wins / playerStat.games_played) * 100);
+  }
+
+  // Calculate total profit/loss
+  function calculateProfit(playerId: number) {
+    if (!stats || !stats.playerStats) return 0;
+    const playerStat = stats.playerStats.find((s: any) => s.player_id === playerId);
+    return playerStat?.total_score || 0;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Simple Header */}
+      {/* Header */}
       <header className="bg-red-700 text-white p-4">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold">🇭🇰 麻雀記帳</h1>
-          <div className="flex items-center gap-2">
-            <Link href="/settings" className="text-xs bg-red-800 px-3 py-1 rounded">
-              ⚙️ 番種
-            </Link>
-            <button onClick={initDb} className="text-xs bg-red-800 px-3 py-1 rounded">
-              初始化
-            </button>
+        <div className="max-w-lg mx-auto">
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-xl font-bold">🇭🇰 麻雀記帳</h1>
+            <div className="flex items-center gap-2">
+              <Link href="/settings" className="text-xs bg-red-800 px-3 py-1 rounded">
+                ⚙️
+              </Link>
+            </div>
+          </div>
+          
+          {/* Navigation */}
+          <div className="flex bg-red-800 rounded-lg overflow-hidden">
+            {[
+              { id: 'home', label: '主頁', icon: '🏠' },
+              { id: 'history', label: '歷史', icon: '📜' },
+              { id: 'stats', label: '統計', icon: '📊' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 ${
+                  activeTab === tab.id ? 'bg-red-600' : ''
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
-      <main className="max-w-md mx-auto p-4 space-y-4">
-        {/* Player List */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-gray-800">玩家 ({players.length})</h2>
-            <button 
-              onClick={() => setShowAddPlayer(!showAddPlayer)}
-              className="text-red-600 text-sm font-medium"
+      <main className="max-w-lg mx-auto p-4">
+        {/* HOME TAB */}
+        {activeTab === 'home' && (
+          <div className="space-y-4">
+            {/* Quick Start */}
+            <Link 
+              href="/new-game"
+              className="block w-full bg-gradient-to-r from-red-600 to-red-500 text-white py-4 rounded-lg font-bold text-lg shadow-lg text-center"
             >
-              {showAddPlayer ? '取消' : '+ 添加'}
-            </button>
-          </div>
+              🀄 新增對局
+            </Link>
 
-          {showAddPlayer && (
-            <form onSubmit={addPlayer} className="flex gap-2 mb-3">
-              <input
-                type="text"
-                value={newPlayerName}
-                onChange={(e) => setNewPlayerName(e.target.value)}
-                placeholder="玩家名稱"
-                className="flex-1 px-3 py-2 border rounded text-sm"
-                required
-              />
-              <button type="submit" className="bg-red-600 text-white px-4 py-2 rounded text-sm">
-                添加
-              </button>
-            </form>
-          )}
-
-          <div className="space-y-2">
-            {players.map((p, i) => (
-              <div key={p.id} className="flex items-center justify-between p-2 bg-gray-50 rounded group">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 bg-red-100 text-red-700 rounded-full flex items-center justify-center text-xs font-bold">
-                    {['東', '南', '西', '北'][i] || '?'}
-                  </span>
-                  <span className="font-medium">{p.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">
-                    {p.games_played || 0} 場
-                  </span>
-                  <button
-                    onClick={() => deletePlayer(p.id, p.name)}
-                    className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-2 py-1 transition"
-                    title="刪除玩家"
-                  >
-                    🗑️
-                  </button>
+            {/* Active Games */}
+            {games.filter(g => g.status === 'active').length > 0 && (
+              <div className="bg-white rounded-lg shadow p-4">
+                <h2 className="font-bold text-gray-800 mb-3">進行中對局</h2>
+                <div className="space-y-2">
+                  {games.filter(g => g.status === 'active').map(game => (
+                    <Link 
+                      key={game.id}
+                      href={`/game/${game.id}`}
+                      className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{game.name}</p>
+                        <p className="text-xs text-gray-500">第{game.current_round}局 · {game.variant === 'hongkong' ? '香港' : game.variant}</p>
+                      </div>
+                      <span className="text-green-600">進行中 →</span>
+                    </Link>
+                  ))}
                 </div>
               </div>
-            ))}
-            {players.length === 0 && (
-              <p className="text-gray-400 text-center py-4 text-sm">暫無玩家</p>
             )}
+
+            {/* Player Overview */}
+            <div className="bg-white rounded-lg shadow p-4">
+              <h2 className="font-bold text-gray-800 mb-3">玩家一覽 ({players.length})</h2>
+              <div className="grid grid-cols-2 gap-2">
+                {players.slice(0, 8).map((p, i) => (
+                  <div key={p.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                      ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500'][i % 4]
+                    }`}>
+                      {p.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{p.name}</p>
+                      <p className="text-xs text-gray-500">{calculateWinRate(p.id)}% 勝率</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white rounded-lg shadow p-3 text-center">
+                <p className="text-2xl font-bold text-red-600">{games.length}</p>
+                <p className="text-xs text-gray-500">總對局</p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-3 text-center">
+                <p className="text-2xl font-bold text-green-600">{games.filter(g => g.status === 'active').length}</p>
+                <p className="text-xs text-gray-500">進行中</p>
+              </div>
+              <div className="bg-white rounded-lg shadow p-3 text-center">
+                <p className="text-2xl font-bold text-blue-600">{players.length}</p>
+                <p className="text-xs text-gray-500">玩家數</p>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Quick Start */}
-        <button 
-          onClick={quickStartGame}
-          disabled={players.length < 4}
-          className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg shadow-lg disabled:bg-gray-400"
-        >
-          🀄 快速開局 (4人)
-        </button>
+        {/* HISTORY TAB */}
+        {activeTab === 'history' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-800">歷史紀錄</h2>
+              <select className="text-sm border rounded px-2 py-1">
+                <option>全部規則</option>
+                <option>香港麻雀</option>
+                <option>台灣麻將</option>
+              </select>
+            </div>
 
-        {/* Recent Games */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="font-bold text-gray-800 mb-3">最近牌局</h2>
-          <div className="space-y-2">
-            {games.slice(0, 5).map(game => (
-              <div 
-                key={game.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 group"
-              >
-                <Link 
-                  href={`/game/${game.id}`}
-                  className="flex-1"
-                >
-                  <p className="font-medium">{game.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {game.status === 'active' ? '進行中' : '已完成'}
-                    {' · '}
-                    第{game.current_round}局
-                  </p>
-                </Link>
-                <div className="flex items-center gap-2">
-                  <Link 
-                    href={`/game/${game.id}`}
-                    className="text-red-600"
-                  >
-                    →
-                  </Link>
-                  <button
-                    onClick={() => deleteGame(game.id, game.name)}
-                    className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-2 py-1 transition"
-                    title="刪除牌局"
-                  >
-                    🗑️
-                  </button>
+            <div className="space-y-3">
+              {games.length === 0 ? (
+                <p className="text-center text-gray-400 py-8">暫無歷史紀錄</p>
+              ) : (
+                games.map(game => (
+                  <div key={game.id} className="bg-white rounded-lg shadow p-4">
+                    <div className="flex items-start justify-between">
+                      <Link href={`/game/${game.id}`} className="flex-1">
+                        <h3 className="font-bold">{game.name}</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(game.created_at).toLocaleDateString('zh-HK')} · 
+                          {game.variant === 'hongkong' ? '香港麻雀' : game.variant}
+                        </p>
+                        <div className="flex gap-1 mt-2">
+                          {game.players?.slice(0, 4).map((p: any) => (
+                            <span key={p.id} className={`text-xs px-2 py-0.5 rounded ${
+                              p.final_score > 0 ? 'bg-green-100 text-green-700' : 
+                              p.final_score < 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100'
+                            }`}>
+                              {p.name} {p.final_score > 0 ? '+' : ''}{p.final_score}
+                            </span>
+                          ))}
+                        </div>
+                      </Link>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          game.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100'
+                        }`}>
+                          {game.status === 'active' ? '進行中' : '已完成'}
+                        </span>
+                        <button
+                          onClick={() => deleteGame(game.id, game.name)}
+                          className="text-red-400 hover:text-red-600 text-xs"
+                        >
+                          刪除
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* STATS TAB */}
+        {activeTab === 'stats' && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-800">玩家統計</h2>
+            
+            {players.length === 0 ? (
+              <p className="text-center text-gray-400 py-8">暫無數據</p>
+            ) : (
+              <div className="space-y-3">
+                {players
+                  .sort((a, b) => calculateProfit(b.id) - calculateProfit(a.id))
+                  .map((player, index) => {
+                    const profit = calculateProfit(player.id);
+                    const winRate = calculateWinRate(player.id);
+                    const gamesPlayed = stats?.playerStats?.find((s: any) => s.player_id === player.id)?.games_played || 0;
+                    
+                    return (
+                      <div key={player.id} className="bg-white rounded-lg shadow p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">
+                              {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '•'}
+                            </span>
+                            <span className="font-bold text-lg">{player.name}</span>
+                          </div>
+                          <span className={`text-xl font-bold ${profit >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {profit > 0 ? '+' : ''}{profit}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="bg-gray-50 rounded p-2">
+                            <p className="text-lg font-bold">{gamesPlayed}</p>
+                            <p className="text-xs text-gray-500">對局數</p>
+                          </div>
+                          <div className="bg-gray-50 rounded p-2">
+                            <p className="text-lg font-bold">{winRate}%</p>
+                            <p className="text-xs text-gray-500">勝率</p>
+                          </div>
+                          <div className="bg-gray-50 rounded p-2">
+                            <p className="text-lg font-bold">{player.wins || 0}</p>
+                            <p className="text-xs text-gray-500">食糊</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            {/* Overall Stats */}
+            {stats && (
+              <div className="bg-white rounded-lg shadow p-4">
+                <h3 className="font-bold mb-3">整體統計</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="text-center p-3 bg-blue-50 rounded">
+                    <p className="text-2xl font-bold text-blue-600">{stats.totalGames || 0}</p>
+                    <p className="text-xs text-gray-600">總對局數</p>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded">
+                    <p className="text-2xl font-bold text-green-600">{stats.totalRounds || 0}</p>
+                    <p className="text-xs text-gray-600">總局數</p>
+                  </div>
                 </div>
               </div>
-            ))}
-            {games.length === 0 && (
-              <p className="text-gray-400 text-center py-4 text-sm">暫無牌局</p>
             )}
           </div>
-        </div>
+        )}
       </main>
     </div>
   );
