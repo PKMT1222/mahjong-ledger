@@ -123,7 +123,8 @@ export async function POST(
       hand_types,
       base_tai,
       total_points,
-      notes
+      notes,
+      hand_details
     } = body;
     
     // Validation
@@ -316,6 +317,32 @@ export async function POST(
       'UPDATE games SET current_round = current_round + 1 WHERE id = $1',
       [gameId]
     );
+    
+    // Save hand details if provided
+    if (hand_details && winner_ids.length > 0) {
+      try {
+        await pool.query(
+          `INSERT INTO hand_notes (
+            round_id, game_id, player_id, hand_type, custom_name,
+            winning_tile, is_dealer, fan_count, notes
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            roundId,
+            gameId,
+            winner_ids[0], // Primary winner
+            hand_details.hand_type_name || null,
+            hand_details.custom_name || null,
+            hand_details.winning_tile || null,
+            hand_details.is_dealer || false,
+            hand_details.fan_count || 0,
+            hand_details.notes || null
+          ]
+        );
+      } catch (e) {
+        console.error('Error saving hand details:', e);
+        // Don't fail the whole request if hand details fail
+      }
+    }
     
     return NextResponse.json({
       success: true,

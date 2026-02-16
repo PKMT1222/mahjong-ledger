@@ -90,6 +90,14 @@ export default function GamePage() {
   const [fu, setFu] = useState(30); // For Japanese mahjong
   const [notes, setNotes] = useState('');
   const [handFilter, setHandFilter] = useState('all');
+  
+  // Hand details state
+  const [showHandDetails, setShowHandDetails] = useState(false);
+  const [selectedHandType, setSelectedHandType] = useState('');
+  const [customHandName, setCustomHandName] = useState('');
+  const [handNotes, setHandNotes] = useState('');
+  const [winningTile, setWinningTile] = useState('');
+  const [isDealerWin, setIsDealerWin] = useState(false);
 
   useEffect(() => {
     if (gameId) fetchGameData();
@@ -216,6 +224,16 @@ export default function GamePage() {
       // Include custom rule info if using
       rule_id: customRule?.id,
       rule_name: customRule?.name,
+      // Hand details
+      hand_details: showHandDetails ? {
+        hand_type_id: selectedHandType || null,
+        hand_type_name: selectedHandType || null,
+        custom_name: customHandName || null,
+        winning_tile: winningTile || null,
+        is_dealer: isDealerWin,
+        notes: handNotes || null,
+        fan_count: totalValue
+      } : null
     };
     
     console.log('Submitting round data:', requestData);
@@ -254,6 +272,13 @@ export default function GamePage() {
     setSelectedHands([]);
     setFu(30);
     setNotes('');
+    // Reset hand details
+    setShowHandDetails(false);
+    setSelectedHandType('');
+    setCustomHandName('');
+    setHandNotes('');
+    setWinningTile('');
+    setIsDealerWin(false);
   }
 
   function toggleHand(handName: string) {
@@ -716,6 +741,93 @@ export default function GamePage() {
                     </div>
                   </div>
                 )}
+
+                {/* Hand Details Toggle */}
+                <div className="border-t pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowHandDetails(!showHandDetails)}
+                    className="flex items-center gap-2 text-sm text-blue-600 font-medium btn-press"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    <span>{showHandDetails ? '▼' : '▶'}</span>
+                    <span>詳細牌型記錄 (可選)</span>
+                  </button>
+
+                  {showHandDetails && (
+                    <div className="mt-3 space-y-3 p-3 bg-blue-50 rounded-lg">
+                      {/* Predefined Hand Type */}
+                      <div>
+                        <label className="text-sm text-gray-600 block mb-1">牌型</label>
+                        <select
+                          value={selectedHandType}
+                          onChange={(e) => setSelectedHandType(e.target.value)}
+                          className="w-full px-3 py-2 border rounded-lg text-sm"
+                        >
+                          <option value="">選擇牌型...</option>
+                          {categories.map(cat => (
+                            <optgroup key={cat} label={getCategoryName(cat)}>
+                              {handTypes
+                                .filter(h => h.category === cat)
+                                .map(h => (
+                                  <option key={h.name} value={h.name}>
+                                    {h.name} ({h.value}{config.scoringUnit})
+                                  </option>
+                                ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Custom Hand Name */}
+                      <div>
+                        <label className="text-sm text-gray-600 block mb-1">自定義牌名</label>
+                        <input
+                          type="text"
+                          value={customHandName}
+                          onChange={(e) => setCustomHandName(e.target.value)}
+                          placeholder="例如：三色同順、一氣通貫..."
+                          className="w-full px-3 py-2 border rounded-lg text-sm"
+                        />
+                      </div>
+
+                      {/* Winning Tile */}
+                      <div>
+                        <label className="text-sm text-gray-600 block mb-1">食糊牌</label>
+                        <input
+                          type="text"
+                          value={winningTile}
+                          onChange={(e) => setWinningTile(e.target.value)}
+                          placeholder="例如：5萬、東風、白板..."
+                          className="w-full px-3 py-2 border rounded-lg text-sm"
+                        />
+                      </div>
+
+                      {/* Is Dealer Win */}
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isDealerWin}
+                          onChange={(e) => setIsDealerWin(e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm">莊家食糊</span>
+                      </label>
+
+                      {/* Hand Notes */}
+                      <div>
+                        <label className="text-sm text-gray-600 block mb-1">備註</label>
+                        <textarea
+                          value={handNotes}
+                          onChange={(e) => setHandNotes(e.target.value)}
+                          placeholder="例如：Dora 3、海底撈月..."
+                          className="w-full px-3 py-2 border rounded-lg text-sm"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Notes */}
                 <input

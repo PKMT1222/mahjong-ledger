@@ -93,6 +93,14 @@ export async function POST() {
     } catch (e) {
       console.log('Columns may already exist');
     }
+    
+    // Add custom_name column to hand_notes if not exists
+    try {
+      await pool.query(`ALTER TABLE hand_notes ADD COLUMN IF NOT EXISTS custom_name VARCHAR(100)`);
+      console.log('✓ Added custom_name column to hand_notes table');
+    } catch (e) {
+      console.log('custom_name column may already exist');
+    }
 
     // Hand details for multi-hand support
     await pool.query(`
