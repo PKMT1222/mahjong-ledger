@@ -106,21 +106,37 @@ export default function Home() {
           {/* Navigation */}
           <div className="flex rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--color-primary-dark)' }}>
             {[
-              { id: 'home', label: t('home'), icon: '🏠' },
-              { id: 'history', label: t('history'), icon: '📜' },
-              { id: 'stats', label: t('statistics'), icon: '📊' },
+              { id: 'home', label: t('home'), icon: '🏠', href: null },
+              { id: 'history', label: t('history'), icon: '📜', href: null },
+              { id: 'stats', label: t('statistics'), icon: '📊', href: '/stats' },
             ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className="flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-all"
-                style={{
-                  backgroundColor: activeTab === tab.id ? 'var(--color-primary)' : 'transparent',
-                }}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
+              tab.href ? (
+                <Link
+                  key={tab.id}
+                  href={tab.href}
+                  className="flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-all"
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: 'white',
+                  }}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </Link>
+              ) : (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className="flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 transition-all"
+                  style={{
+                    backgroundColor: activeTab === tab.id ? 'var(--color-primary)' : 'transparent',
+                    color: 'white',
+                  }}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              )
             ))}
           </div>
         </div>
