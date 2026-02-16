@@ -755,26 +755,74 @@ export default function GamePage() {
         {activeTab === 'stats' && (
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="font-bold mb-4">本局統計 ({config.name})</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {players.map((p, i) => (
-                <div key={p.id} className="p-3 bg-gray-50 rounded-xl">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">{WINDS[i]}</span>
-                    <span className="font-bold">{p.name}</span>
-                    {p.is_dealer && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 rounded">莊</span>}
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between"><span className="text-gray-500">食糊</span><span>{p.wins}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-500">自摸</span><span>{p.self_draws}</span></div>
-                    <div className="flex justify-between pt-2 border-t">
-                      <span className="text-gray-500">分數</span>
-                      <span className={`font-bold ${p.final_score >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {p.final_score > 0 ? '+' : ''}{p.final_score}
-                      </span>
-                    </div>
-                  </div>
+            
+            {/* Titles Section */}
+            {(() => {
+              // Calculate titles
+              const maxWins = Math.max(...players.map(p => p.wins));
+              const maxSelfDraws = Math.max(...players.map(p => p.self_draws));
+              const maxDealIns = Math.max(...players.map(p => p.deal_ins));
+              const minWins = Math.min(...players.map(p => p.wins));
+              
+              const getTitles = (p: Player) => {
+                const titles: { text: string; color: string; emoji: string }[] = [];
+                if (p.wins > 0 && p.wins === maxWins) titles.push({ text: '食糊王', color: 'bg-red-100 text-red-700', emoji: '👑' });
+                if (p.self_draws > 0 && p.self_draws === maxSelfDraws) titles.push({ text: '自摸王', color: 'bg-amber-100 text-amber-700', emoji: '🎯' });
+                if (p.deal_ins > 0 && p.deal_ins === maxDealIns) titles.push({ text: '出銃王', color: 'bg-blue-100 text-blue-700', emoji: '💥' });
+                if (p.wins === minWins && players.length > 1) titles.push({ text: '陪跑員', color: 'bg-gray-100 text-gray-600', emoji: '🏃' });
+                return titles;
+              };
+              
+              return (
+                <div className="grid grid-cols-2 gap-3">
+                  {players.map((p, i) => {
+                    const titles = getTitles(p);
+                    return (
+                      <div key={p.id} className="p-3 bg-gray-50 rounded-xl">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xl">{WINDS[i]}</span>
+                          <span className="font-bold">{p.name}</span>
+                          {p.is_dealer && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 rounded">莊</span>}
+                        </div>
+                        
+                        {/* Titles */}
+                        {titles.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {titles.map((t, idx) => (
+                              <span key={idx} className={`text-xs px-2 py-0.5 rounded-full ${t.color}`}>
+                                {t.emoji} {t.text}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between"><span className="text-gray-500">食糊</span><span className="font-medium">{p.wins}</span></div>
+                          <div className="flex justify-between"><span className="text-gray-500">自摸</span><span className="font-medium">{p.self_draws}</span></div>
+                          <div className="flex justify-between"><span className="text-gray-500">出銃</span><span className="font-medium">{p.deal_ins}</span></div>
+                          <div className="flex justify-between pt-2 border-t">
+                            <span className="text-gray-500">分數</span>
+                            <span className={`font-bold ${p.final_score >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              {p.final_score > 0 ? '+' : ''}{p.final_score}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              );
+            })()}
+            
+            {/* Legend */}
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-xs text-gray-500 mb-2">稱號說明：</p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="px-2 py-1 bg-red-100 text-red-700 rounded">👑 食糊王 - 最多食糊</span>
+                <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded">🎯 自摸王 - 最多自摸</span>
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">💥 出銃王 - 最多出銃</span>
+                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded">🏃 陪跑員 - 最少食糊</span>
+              </div>
             </div>
           </div>
         )}
