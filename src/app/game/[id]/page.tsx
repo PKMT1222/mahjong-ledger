@@ -151,16 +151,18 @@ export default function GamePage() {
       // Self-draw: base × selfDrawMultiplier (e.g., 8 × 1.5 = 12 per person)
       const perPersonAmount = Math.round(basePoints * customRule.selfDrawMultiplier);
       
-      // Bao self-draw: 包家 pays perPersonAmount × (n-1) = 12 × 3 = 36
-      // Normal self-draw: winner gets same total from 3 players
+      // Bao self-draw: 包家 pays perPersonAmount only (12分)
+      // Normal self-draw: winner gets perPersonAmount × (n-1) from 3 players (36分)
       const otherPlayerCount = players.length - 1;
-      const baoSelfDrawTotal = perPersonAmount * otherPlayerCount; // ×3 for 4 players
-      const normalSelfDrawTotal = perPersonAmount * otherPlayerCount; // Same total
+      const baoSelfDrawTotal = perPersonAmount; // 包家只付12分
+      const normalSelfDrawTotal = perPersonAmount * otherPlayerCount; // 贏家收36分
       
       return {
         base: totalValue,
         final: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
-        breakdown: `${totalValue}番 × ${customRule.selfDrawMultiplier} = ${perPersonAmount}分${isBaoZimo ? ' (包自摸)' : ' × ' + otherPlayerCount + '人 = ' + normalSelfDrawTotal + '分'}`,
+        breakdown: isBaoZimo 
+          ? `${totalValue}番 × ${customRule.selfDrawMultiplier} = ${perPersonAmount}分 (包自摸)`
+          : `${totalValue}番 × ${customRule.selfDrawMultiplier} = ${perPersonAmount}分 × ${otherPlayerCount}人 = ${normalSelfDrawTotal}分`,
         payments: {
           winner: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
           losers: -perPersonAmount,
@@ -199,7 +201,8 @@ export default function GamePage() {
   }
 
   // Helper function to get bao self-draw total
-  // 包自摸 = 番数 × 1.5 × (n-1) = 12 × 3 = 36
+  // 包自摸 = 番数 × 1.5 (e.g., 3番 = 8 × 1.5 = 12分)
+  // 包家只付自摸金額，唔使乘人數
   function getBaoSelfDrawTotal(): number {
     const score = calculateFinalScore();
     return score.selfDrawTotal || score.final;
@@ -708,9 +711,9 @@ export default function GamePage() {
                         </div>
                         {baoPayerId && (
                           <p className="text-sm text-amber-700 mt-2">
-                            包家將支付全部 {getBaoSelfDrawTotal()} 分
+                            包家將支付 {getBaoSelfDrawTotal()} 分
                             <span className="text-xs text-gray-500 block">
-                              ({players.length - 1}人 × {Math.round(getBaoSelfDrawTotal() / (players.length - 1))}分)
+                              (包自摸: 番數 × {customRule?.selfDrawMultiplier || config.selfDrawMultiplier})
                             </span>
                           </p>
                         )}
