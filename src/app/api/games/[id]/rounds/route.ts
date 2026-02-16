@@ -44,13 +44,40 @@ export async function GET(
   }
 }
 
-// Helper function to ensure columns exist
+// Helper function to ensure columns exist with better error handling
 async function ensureColumns() {
   try {
-    await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS is_draw BOOLEAN DEFAULT FALSE`);
-    await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS pass_dealer BOOLEAN DEFAULT FALSE`);
-  } catch (e) {
-    // Ignore errors
+    console.log('Checking database columns...');
+    
+    // Check if columns exist
+    const checkResult = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'rounds' AND column_name = 'is_draw'
+    `);
+    
+    if (checkResult.rows.length === 0) {
+      console.log('Adding is_draw column...');
+      await pool.query(`ALTER TABLE rounds ADD COLUMN is_draw BOOLEAN DEFAULT FALSE`);
+      console.log('✓ Added is_draw column');
+    }
+    
+    const checkResult2 = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'rounds' AND column_name = 'pass_dealer'
+    `);
+    
+    if (checkResult2.rows.length === 0) {
+      console.log('Adding pass_dealer column...');
+      await pool.query(`ALTER TABLE rounds ADD COLUMN pass_dealer BOOLEAN DEFAULT FALSE`);
+      console.log('✓ Added pass_dealer column');
+    }
+    
+    return true;
+  } catch (e: any) {
+    console.error('ensureColumns error:', e.message);
+    return false;
   }
 }
 
@@ -60,10 +87,19 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Ensure columns exist first
-    await ensureColumns();
-    
     const { id } = await params;
+    
+    // Ensure columns exist first (with retry)
+    let migrationSuccess = false;
+    for (let i = 0; i < 3; i++) {
+      migrationSuccess = await ensureColumns();
+      if (migrationSuccess) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    
+    if (!migrationSuccess) {
+      console.warn('Migration may have failed, proceeding anyway...');
+    }
     
     // Parse request body
     let body;
@@ -157,33 +193,70 @@ export async function POST(
       }
     }
     
-    // Insert round
-    const roundResult = await pool.query(
-      `INSERT INTO rounds (
-        game_id, round_number, round_wind, hand_number, dealer_id, dealer_position,
-        winner_ids, loser_id, is_self_draw, is_draw, pass_dealer, hand_type, base_tai, total_points,
-        player_scores, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-      RETURNING *`,
-      [
-        gameId,
-        roundNumber,
-        currentWind,
-        handInRound + 1,
-        dealer_id,
-        dealerPosition,
-        winner_ids || [],
-        loser_id || null,
-        is_self_draw || false,
-        is_draw || false,
-        pass_dealer || false,
-        is_draw ? '流局' : hand_types?.map((h: any) => h.name).join(', ') || '',
-        base_tai || 0,
-        is_draw ? 0 : points,
-        JSON.stringify(scores),
-        notes || ''
-      ]
-    );
+    // Check if new columns exist
+    const columnsExist = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'rounds' AND column_name IN ('is_draw', 'pass_dealer')
+    `);
+    const hasNewColumns = columnsExist.rows.length >= 2;
+    
+    // Insert round - use appropriate query based on column existence
+    let roundResult;
+    if (hasNewColumns) {
+      roundResult = await pool.query(
+        `INSERT INTO rounds (
+          game_id, round_number, round_wind, hand_number, dealer_id, dealer_position,
+          winner_ids, loser_id, is_self_draw, is_draw, pass_dealer, hand_type, base_tai, total_points,
+          player_scores, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        RETURNING *`,
+        [
+          gameId,
+          roundNumber,
+          currentWind,
+          handInRound + 1,
+          dealer_id,
+          dealerPosition,
+          winner_ids || [],
+          loser_id || null,
+          is_self_draw || false,
+          is_draw || false,
+          pass_dealer || false,
+          is_draw ? '流局' : hand_types?.map((h: any) => h.name).join(', ') || '',
+          base_tai || 0,
+          is_draw ? 0 : points,
+          JSON.stringify(scores),
+          notes || ''
+        ]
+      );
+    } else {
+      // Fallback for old schema without new columns
+      roundResult = await pool.query(
+        `INSERT INTO rounds (
+          game_id, round_number, round_wind, hand_number, dealer_id, dealer_position,
+          winner_ids, loser_id, is_self_draw, hand_type, base_tai, total_points,
+          player_scores, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        RETURNING *`,
+        [
+          gameId,
+          roundNumber,
+          currentWind,
+          handInRound + 1,
+          dealer_id,
+          dealerPosition,
+          winner_ids || [],
+          loser_id || null,
+          is_self_draw || false,
+          is_draw ? '流局' : hand_types?.map((h: any) => h.name).join(', ') || '',
+          base_tai || 0,
+          is_draw ? 0 : points,
+          JSON.stringify(scores),
+          notes || ''
+        ]
+      );
+    }
     
     const roundId = roundResult.rows[0].id;
     
