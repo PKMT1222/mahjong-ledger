@@ -41,14 +41,24 @@ export default function Home() {
     }
   }
 
-  async function deleteGame(id: number, name: string) {
-    if (!confirm(`確定要刪除牌局 "${name}" 嗎？`)) return;
+  async function deleteGame(id: number, name: string, isActive: boolean = false) {
+    const message = isActive 
+      ? `確定要刪除進行中對局 "${name}" 嗎？\n\n⚠️ 警告：此對局尚未結束，刪除後所有進度將會遺失！`
+      : `確定要刪除牌局 "${name}" 嗎？`;
+    
+    if (!confirm(message)) return;
     
     try {
       const res = await fetch(`/api/games?id=${id}`, { method: 'DELETE' });
-      if (res.ok) fetchData();
+      if (res.ok) {
+        fetchData();
+        alert('✅ 對局已刪除');
+      } else {
+        const error = await res.json();
+        alert('❌ 刪除失敗: ' + (error.error || 'Unknown error'));
+      }
     } catch (error: any) {
-      alert('刪除失敗: ' + error.message);
+      alert('❌ 刪除失敗: ' + error.message);
     }
   }
 
@@ -121,17 +131,33 @@ export default function Home() {
                 <h2 className="font-bold text-gray-800 mb-3">進行中對局</h2>
                 <div className="space-y-2">
                   {games.filter(g => g.status === 'active').map(game => (
-                    <Link 
+                    <div 
                       key={game.id}
-                      href={`/game/${game.id}`}
-                      className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg group"
                     >
-                      <div>
+                      <Link 
+                        href={`/game/${game.id}`}
+                        className="flex-1"
+                      >
                         <p className="font-medium">{game.name}</p>
-                        <p className="text-xs text-gray-500">第{game.current_round}局 · {game.variant === 'hongkong' ? '香港' : game.variant}</p>
+                        <p className="text-xs text-gray-500">第{game.current_round}局 · {game.variant === 'hongkong' ? '香港' : game.variant === 'taiwan' ? '台灣' : game.variant === 'japanese' ? '日本' : game.variant}</p>
+                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link 
+                          href={`/game/${game.id}`}
+                          className="text-green-600"
+                        >
+                          進行中 →
+                        </Link>
+                        <button
+                          onClick={() => deleteGame(game.id, game.name, true)}
+                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-2 py-1 transition"
+                          title="刪除對局"
+                        >
+                          🗑️
+                        </button>
                       </div>
-                      <span className="text-green-600">進行中 →</span>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -218,7 +244,7 @@ export default function Home() {
                           {game.status === 'active' ? '進行中' : '已完成'}
                         </span>
                         <button
-                          onClick={() => deleteGame(game.id, game.name)}
+                          onClick={() => deleteGame(game.id, game.name, game.status === 'active')}
                           className="text-red-400 hover:text-red-600 text-xs"
                         >
                           刪除
