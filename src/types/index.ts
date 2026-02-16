@@ -5,6 +5,12 @@ export interface Player {
   id: number;
   name: string;
   created_at: string;
+  // Stats (optional, from API)
+  games_played?: number;
+  total_score?: number;
+  wins?: number;
+  self_draws?: number;
+  deal_ins?: number;
 }
 
 export interface Game {
