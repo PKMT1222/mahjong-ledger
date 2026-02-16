@@ -137,10 +137,33 @@ export async function POST() {
     `);
     console.log('✓ player_stats table created');
 
+    // Hand notes for detailed recording
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS hand_notes (
+        id SERIAL PRIMARY KEY,
+        round_id INTEGER REFERENCES rounds(id) ON DELETE CASCADE,
+        game_id INTEGER REFERENCES games(id) ON DELETE CASCADE,
+        player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+        hand_type VARCHAR(100),
+        hand_tiles JSONB DEFAULT '[]',
+        winning_tile VARCHAR(10),
+        is_self_draw BOOLEAN DEFAULT FALSE,
+        is_dealer BOOLEAN DEFAULT FALSE,
+        fan_count INTEGER DEFAULT 0,
+        score INTEGER DEFAULT 0,
+        notes TEXT,
+        mood VARCHAR(50),
+        location VARCHAR(200),
+        tags JSONB DEFAULT '[]',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ hand_notes table created');
+
     return NextResponse.json({ 
       success: true,
       message: 'Database initialized successfully',
-      tables: ['players', 'games', 'game_players', 'rounds', 'round_hands', 'transactions', 'game_history', 'player_stats']
+      tables: ['players', 'games', 'game_players', 'rounds', 'round_hands', 'transactions', 'game_history', 'player_stats', 'hand_notes']
     });
   } catch (error) {
     console.error('Database initialization error:', error);
