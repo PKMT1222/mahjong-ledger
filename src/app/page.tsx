@@ -124,6 +124,24 @@ export default function Home() {
     }
   }
 
+  async function deletePlayer(id: number, name: string) {
+    if (!confirm(`確定要刪除玩家 "${name}" 嗎？\n注意：這也會刪除該玩家的所有牌局紀錄。`)) {
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/players?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchData();
+      } else {
+        const error = await res.json();
+        alert('刪除失敗: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      alert('刪除失敗: ' + error.message);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Simple Header */}
@@ -167,16 +185,25 @@ export default function Home() {
 
           <div className="space-y-2">
             {players.map((p, i) => (
-              <div key={p.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+              <div key={p.id} className="flex items-center justify-between p-2 bg-gray-50 rounded group">
                 <div className="flex items-center gap-2">
                   <span className="w-6 h-6 bg-red-100 text-red-700 rounded-full flex items-center justify-center text-xs font-bold">
                     {['東', '南', '西', '北'][i] || '?'}
                   </span>
                   <span className="font-medium">{p.name}</span>
                 </div>
-                <span className="text-xs text-gray-500">
-                  {p.games_played || 0} 場
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">
+                    {p.games_played || 0} 場
+                  </span>
+                  <button
+                    onClick={() => deletePlayer(p.id, p.name)}
+                    className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-2 py-1 transition"
+                    title="刪除玩家"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             ))}
             {players.length === 0 && (

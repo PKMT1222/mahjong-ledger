@@ -59,3 +59,31 @@ export async function PUT(request: Request) {
     }, { status: 500 });
   }
 }
+
+// DELETE /api/players - Delete player
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Player ID required' }, { status: 400 });
+    }
+    
+    // Check if player exists
+    const checkResult = await pool.query('SELECT id FROM players WHERE id = $1', [id]);
+    if (checkResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Player not found' }, { status: 404 });
+    }
+    
+    // Delete player (cascade will handle related records)
+    await pool.query('DELETE FROM players WHERE id = $1', [id]);
+    
+    return NextResponse.json({ success: true, message: 'Player deleted' });
+  } catch (error) {
+    console.error('Delete player error:', error);
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
+  }
+}
