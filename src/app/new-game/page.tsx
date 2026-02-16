@@ -158,11 +158,21 @@ export default function NewGamePage() {
     });
   };
 
+  // Update colors to Teal theme
+  const TEAL_COLORS = [
+    'bg-teal-500', 'bg-violet-500', 'bg-orange-500', 'bg-cyan-500',
+    'bg-emerald-500', 'bg-pink-500', 'bg-indigo-500', 'bg-amber-500'
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-red-700 text-white p-4">
+    <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      {/* Header - Teal Design */}
+      <header className="text-white p-4" style={{ 
+        background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+      }}>
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <Link href="/" className="text-white text-lg">←</Link>
+          <Link href="/" className="text-white text-lg hover:opacity-80 transition-opacity">←</Link>
           <h1 className="text-xl font-bold">新增對局</h1>
           <div className="w-6"></div>
         </div>
@@ -172,9 +182,11 @@ export default function NewGamePage() {
         {/* Progress */}
         <div className="flex items-center justify-center gap-2 mb-6">
           {[1, 2, 3].map(s => (
-            <div key={s} className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              step >= s ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-500'
-            }`}>
+            <div key={s} className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+              step >= s ? 'text-white' : 'bg-slate-200 text-slate-500'
+            }`}
+            style={{ backgroundColor: step >= s ? '#0D9488' : undefined }}
+            >
               {s}
             </div>
           ))}
@@ -194,12 +206,15 @@ export default function NewGamePage() {
                       setVariant(v.id);
                       setSelectedRuleId('');
                     }}
-                    className={`w-full p-3 rounded-lg text-center border-2 transition btn-press ${
-                      variant === v.id ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
+                    className={`w-full p-3 rounded-xl text-center border-2 transition-all hover:shadow-md ${
+                      variant === v.id ? 'bg-teal-50' : 'border-slate-200 bg-white'
                     }`}
-                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                    style={{ 
+                      WebkitTapHighlightColor: 'transparent',
+                      borderColor: variant === v.id ? '#0D9488' : undefined
+                    }}
                   >
-                    <div className="font-bold text-sm">{v.name}</div>
+                    <div className="font-bold text-sm" style={{ color: variant === v.id ? '#0D9488' : '#1E293B' }}>{v.name}</div>
                   </button>
                 </FadeIn>
               ))}
@@ -219,31 +234,34 @@ export default function NewGamePage() {
                   <FadeIn key={rule.id} delay={i * 30}>
                     <button
                       onClick={() => setSelectedRuleId(rule.id)}
-                      className={`w-full p-3 rounded-lg text-left border-2 transition btn-press ${
-                        selectedRuleId === rule.id ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
+                      className={`w-full p-3 rounded-xl text-left border-2 transition-all hover:shadow-md ${
+                        selectedRuleId === rule.id ? 'bg-teal-50' : 'border-slate-200 bg-white'
                       }`}
-                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                      style={{ 
+                        WebkitTapHighlightColor: 'transparent',
+                        borderColor: selectedRuleId === rule.id ? '#0D9488' : undefined
+                      }}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-bold">{rule.name}</div>
-                          <div className="text-xs text-gray-500">
+                          <div className="font-bold" style={{ color: selectedRuleId === rule.id ? '#0D9488' : '#1E293B' }}>{rule.name}</div>
+                          <div className="text-xs text-slate-500">
                             {rule.fullShoot ? '全銃' : '半銃'} · {rule.minFan}-{rule.maxFan}番
                             {rule.jackpotEnabled && ' · Jackpot'}
                           </div>
                         </div>
                         {rule.isPreset ? (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                          <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-medium">
                             預設
                           </span>
                         ) : (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                          <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">
                             自訂
                           </span>
                         )}
                       </div>
                       {/* Preview points */}
-                      <div className="mt-2 text-xs text-gray-400">
+                      <div className="mt-2 text-xs text-slate-400">
                         {rule.minFan}番={rule.fanPoints[rule.minFan]}分 | 
                         {Math.floor((rule.minFan + rule.maxFan) / 2)}番=
                         {rule.fanPoints[Math.floor((rule.minFan + rule.maxFan) / 2)] || '?'}分 | 
@@ -258,8 +276,12 @@ export default function NewGamePage() {
             <button
               onClick={() => setStep(2)}
               disabled={!validateStep1()}
-              className="w-full bg-red-600 text-white py-3 rounded-lg font-bold disabled:bg-gray-400 btn-ripple"
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              className="w-full text-white py-3 rounded-xl font-bold disabled:bg-slate-300 transition-all hover:transform hover:-translate-y-0.5"
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                background: validateStep1() ? 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)' : undefined,
+                boxShadow: validateStep1() ? '0 4px 14px rgba(13, 148, 136, 0.39)' : 'none'
+              }}
             >
               下一步
             </button>
@@ -331,8 +353,12 @@ export default function NewGamePage() {
               <button
                 onClick={() => setStep(3)}
                 disabled={!validateStep2()}
-                className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold disabled:bg-gray-400 btn-ripple"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
+                className="flex-1 text-white py-3 rounded-xl font-bold disabled:bg-slate-300 transition-all hover:transform hover:-translate-y-0.5"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  background: validateStep2() ? 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)' : undefined,
+                  boxShadow: validateStep2() ? '0 4px 14px rgba(13, 148, 136, 0.39)' : 'none'
+                }}
               >
                 下一步
               </button>
@@ -395,15 +421,19 @@ export default function NewGamePage() {
             <div className="flex gap-2">
               <button 
                 onClick={() => setStep(2)} 
-                className="flex-1 bg-gray-200 py-3 rounded-lg btn-press"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
+                className="flex-1 py-3 rounded-xl font-medium transition-all hover:bg-slate-200"
+                style={{ WebkitTapHighlightColor: 'transparent', backgroundColor: '#F1F5F9', color: '#64748B' }}
               >
                 上一步
               </button>
               <button 
                 onClick={createGame} 
-                className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold btn-ripple"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
+                className="flex-1 text-white py-3 rounded-xl font-bold transition-all hover:transform hover:-translate-y-0.5"
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)',
+                  boxShadow: '0 4px 14px rgba(13, 148, 136, 0.39)'
+                }}
               >
                 開始對局
               </button>

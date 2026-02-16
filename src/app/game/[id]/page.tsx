@@ -427,37 +427,57 @@ export default function GamePage() {
 
   if (!game) return <div className="min-h-screen flex items-center justify-center">載入中...</div>;
 
+  // Player colors for consistency
+  const playerColors = ['#0D9488', '#7C3AED', '#EA580C', '#0891B2'];
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-red-700 text-white p-4">
+    <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      {/* Header - Teal Design */}
+      <header className="text-white p-4" style={{ 
+        background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+      }}>
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <Link href="/" className="text-white text-lg">←</Link>
+          <Link href="/" className="text-white text-lg hover:opacity-80 transition-opacity">←</Link>
           <div className="text-center">
-            <h1 className="font-bold">{game.name}</h1>
-            <p className="text-xs opacity-80">
+            <h1 className="font-bold text-lg">{game.name}</h1>
+            <p className="text-xs opacity-90">
               {config.name} · 第{game.current_round}局 · {game.current_wind}風
               {game.dealer_repeat > 0 && `(連${game.dealer_repeat})`}
             </p>
           </div>
-          <button onClick={undoLast} className="text-xs bg-red-800 px-2 py-1 rounded">還原</button>
+          <button 
+            onClick={undoLast} 
+            className="text-xs px-3 py-1.5 rounded-full transition-all hover:opacity-80"
+            style={{ backgroundColor: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)' }}
+          >
+            還原
+          </button>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto p-4">
-        {/* Scoreboard */}
-        <div className="bg-white rounded-lg shadow mb-4 overflow-hidden">
-          <div className="grid grid-cols-4 divide-x divide-gray-200">
+        {/* Scoreboard - Modern Design */}
+        <div className="bg-white rounded-2xl shadow-md mb-4 overflow-hidden" style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+          <div className="grid grid-cols-4 divide-x divide-slate-100">
             {players.map((p, i) => (
-              <div key={p.id} className={`p-3 text-center ${p.is_dealer ? 'bg-red-50' : ''}`}>
-                <div className="text-xs text-gray-500 mb-1">
+              <div 
+                key={p.id} 
+                className={`p-3 text-center transition-colors ${p.is_dealer ? 'bg-teal-50' : ''}`}
+              >
+                <div className="text-xs text-slate-500 mb-1 font-medium">
                   {WINDS[i]}{p.is_dealer ? '莊' : ''}
                 </div>
-                <div className="font-bold text-sm truncate">{p.name}</div>
-                <div className={`text-xl font-bold ${p.final_score > 0 ? 'text-red-600' : p.final_score < 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                  {p.final_score}
+                <div className="font-bold text-sm truncate text-slate-800">{p.name}</div>
+                <div 
+                  className="text-xl font-bold mt-1"
+                  style={{ 
+                    color: p.final_score > 0 ? '#059669' : p.final_score < 0 ? '#DC2626' : '#64748B'
+                  }}
+                >
+                  {p.final_score > 0 ? '+' : ''}{p.final_score}
                 </div>
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-xs text-slate-400 mt-1">
                   🏆{p.wins} 🎯{p.self_draws}
                 </div>
               </div>
@@ -465,8 +485,8 @@ export default function GamePage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex bg-white rounded-lg shadow mb-4 overflow-hidden">
+        {/* Tabs - Modern Design */}
+        <div className="flex bg-white rounded-xl shadow-md mb-4 overflow-hidden p-1 gap-1" style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
           {[
             { id: 'record', label: '📝 記分' },
             { id: 'history', label: '📜 紀錄' },
@@ -475,10 +495,12 @@ export default function GamePage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 py-3 text-sm font-medium tab-press transition-all duration-150 ${
-                activeTab === tab.id ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              className="flex-1 py-3 text-sm font-medium rounded-lg transition-all duration-200"
+              style={{
+                backgroundColor: activeTab === tab.id ? '#0D9488' : 'transparent',
+                color: activeTab === tab.id ? 'white' : '#64748B',
+                boxShadow: activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
             >
               {tab.label}
             </button>
@@ -487,13 +509,16 @@ export default function GamePage() {
 
         {/* Record Tab */}
         {activeTab === 'record' && game.status === 'active' && (
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white rounded-2xl shadow-md p-4" style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
             {!showRecord && !showDrawForm ? (
               <div className="space-y-3">
                 <button 
                   onClick={() => setShowRecord(true)}
-                  className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg btn-ripple"
-                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                  className="w-full text-white py-4 rounded-xl font-bold text-lg transition-all hover:transform hover:-translate-y-1 active:transform active:translate-y-0"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)',
+                    boxShadow: '0 10px 25px -5px rgba(13, 148, 136, 0.4)'
+                  }}
                 >
                   + 記錄食糊
                 </button>

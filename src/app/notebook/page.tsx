@@ -117,33 +117,40 @@ export default function NotebookPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-red-700 text-white p-4">
+    <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      {/* Header - Teal Design */}
+      <header className="text-white p-4" style={{ 
+        background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+      }}>
         <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between mb-3">
-            <Link href="/" className="text-white text-lg">←</Link>
+            <Link href="/" className="text-white text-lg hover:opacity-80 transition-opacity">←</Link>
             <h1 className="text-xl font-bold">📓 麻雀筆記本</h1>
             <div className="w-6"></div>
           </div>
           
           {/* Tabs */}
-          <div className="flex bg-red-800 rounded-lg overflow-hidden">
+          <div className="flex rounded-xl overflow-hidden p-1 gap-1" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
             <button
               onClick={() => setActiveTab('diary')}
-              className={`flex-1 py-2 text-sm font-medium tab-press transition-all duration-150 ${
-                activeTab === 'diary' ? 'bg-red-600' : 'hover:bg-red-700/50'
-              }`}
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              className="flex-1 py-2.5 text-sm font-medium rounded-lg transition-all"
+              style={{ 
+                backgroundColor: activeTab === 'diary' ? '#0D9488' : 'transparent',
+                color: 'white',
+                boxShadow: activeTab === 'diary' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none'
+              }}
             >
               📝 手牌日記
             </button>
             <button
               onClick={() => setActiveTab('review')}
-              className={`flex-1 py-2 text-sm font-medium tab-press transition-all duration-150 ${
-                activeTab === 'review' ? 'bg-red-600' : 'hover:bg-red-700/50'
-              }`}
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              className="flex-1 py-2.5 text-sm font-medium rounded-lg transition-all"
+              style={{ 
+                backgroundColor: activeTab === 'review' ? '#0D9488' : 'transparent',
+                color: 'white',
+                boxShadow: activeTab === 'review' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none'
+              }}
             >
               📊 年度回顧
             </button>
@@ -310,11 +317,12 @@ export default function NotebookPage() {
                   {stats.monthlyTrend.map(([month, count]) => (
                     <div key={month} className="flex items-center gap-2">
                       <span className="text-sm w-16">{month}</span>
-                      <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
+                      <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
                         <div 
-                          className="bg-red-500 h-full rounded-full"
+                          className="h-full rounded-full"
                           style={{ 
-                            width: `${Math.min(100, (count / Math.max(...stats.monthlyTrend.map(t => t[1]))) * 100)}%` 
+                            width: `${Math.min(100, (count / Math.max(...stats.monthlyTrend.map(t => t[1]))) * 100)}%`,
+                            backgroundColor: '#0D9488'
                           }}
                         />
                       </div>

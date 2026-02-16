@@ -191,12 +191,15 @@ export default function StatisticsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-red-700 text-white p-4">
+    <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      {/* Header - Teal Design */}
+      <header className="text-white p-4" style={{ 
+        background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+      }}>
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-4">
-            <Link href="/" className="text-white text-lg hover:opacity-80">←</Link>
+            <Link href="/" className="text-white text-lg hover:opacity-80 transition-opacity">←</Link>
             <h1 className="text-xl font-bold">📊 統計中心</h1>
             <div className="w-6"></div>
           </div>
@@ -206,7 +209,7 @@ export default function StatisticsPage() {
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="px-4 py-2 rounded-lg text-gray-800 bg-white"
+              className="px-4 py-2 rounded-xl text-slate-800 bg-white border-2 border-white/20 focus:border-white focus:outline-none"
             >
               {yearlySummary.map(y => (
                 <option key={y.year} value={y.year}>{y.year}年</option>
@@ -217,14 +220,14 @@ export default function StatisticsPage() {
       </header>
 
       {/* Tabs */}
-      <div className="bg-white shadow">
+      <div className="bg-white shadow-md">
         <div className="max-w-4xl mx-auto flex">
           <button
             onClick={() => { setActiveTab('global'); setSelectedPlayer(null); }}
             className={`flex-1 py-3 text-center font-medium transition-colors ${
-              activeTab === 'global' 
-                ? 'text-red-600 border-b-2 border-red-600' 
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'global'
+                ? 'text-teal-600 border-b-2 border-teal-600'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             🌍 全局統計
@@ -232,9 +235,9 @@ export default function StatisticsPage() {
           <button
             onClick={() => setActiveTab('player')}
             className={`flex-1 py-3 text-center font-medium transition-colors ${
-              activeTab === 'player' 
-                ? 'text-red-600 border-b-2 border-red-600' 
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'player'
+                ? 'text-teal-600 border-b-2 border-teal-600'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             👤 玩家統計
@@ -249,21 +252,21 @@ export default function StatisticsPage() {
             {/* Overview Cards */}
             <FadeIn>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl shadow p-4 text-center">
-                  <p className="text-3xl font-bold text-red-600">{global.total_games}</p>
-                  <p className="text-sm text-gray-500">總對局數</p>
+                <div className="bg-white rounded-2xl shadow-md p-4 text-center" style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                  <p className="text-3xl font-bold" style={{ color: '#0D9488' }}>{global.total_games}</p>
+                  <p className="text-sm text-slate-500 font-medium mt-1">總對局數</p>
                 </div>
-                <div className="bg-white rounded-xl shadow p-4 text-center">
-                  <p className="text-3xl font-bold text-blue-600">{global.total_rounds}</p>
-                  <p className="text-sm text-gray-500">總手數</p>
+                <div className="bg-white rounded-2xl shadow-md p-4 text-center" style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                  <p className="text-3xl font-bold" style={{ color: '#7C3AED' }}>{global.total_rounds}</p>
+                  <p className="text-sm text-slate-500 font-medium mt-1">總手數</p>
                 </div>
-                <div className="bg-white rounded-xl shadow p-4 text-center">
-                  <p className={`text-3xl font-bold ${global.total_money_exchanged >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <div className="bg-white rounded-2xl shadow-md p-4 text-center" style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                  <p className="text-3xl font-bold" style={{ color: global.total_money_exchanged >= 0 ? '#059669' : '#DC2626' }}>
                     {formatMoney(global.total_money_exchanged)}
                   </p>
-                  <p className="text-sm text-gray-500">資金流動</p>
+                  <p className="text-sm text-slate-500 font-medium mt-1">資金流動</p>
                 </div>
-                <div className="bg-white rounded-xl shadow p-4 text-center">
+                <div className="bg-white rounded-2xl shadow-md p-4 text-center" style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
                   <p className="text-3xl font-bold text-purple-600">{global.total_players}</p>
                   <p className="text-sm text-gray-500">參與玩家</p>
                 </div>
