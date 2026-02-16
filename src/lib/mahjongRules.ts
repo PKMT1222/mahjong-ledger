@@ -40,22 +40,23 @@ export interface VariantConfig {
   paymentStructure: 'diff' | 'same'; // diff = different payment, same = same payment
 }
 
-// Standard Hong Kong Fan Points Table (Exponential)
+// Simplified Hong Kong Fan Points Table
+// 自摸每家付固定分數，不乘1.5
 export const HONG_KONG_FAN_TABLE: Record<number, number> = {
-  0: 1,   // 雞胡 (Chicken Hand)
+  0: 1,   // 雞胡
   1: 2,   // 1番 = 2分
-  2: 4,   // 2番 = 4分
-  3: 8,   // 3番 = 8分
-  4: 16,  // 4番 = 16分
-  5: 24,  // 5番 = 24分 (some use 32)
-  6: 32,  // 6番 = 32分
-  7: 48,  // 7番 = 48分
-  8: 64,  // 8番 = 64分
-  9: 96,  // 9番 = 96分
-  10: 128, // 10番 = 128分
-  11: 192, // 11番 = 192分
-  12: 256, // 12番 = 256分
-  13: 384, // 13番 = 384分 (Max)
+  2: 3,   // 2番 = 3分
+  3: 4,   // 3番 = 4分 (自摸每家付4分)
+  4: 6,   // 4番 = 6分
+  5: 8,   // 5番 = 8分
+  6: 12,  // 6番 = 12分
+  7: 16,  // 7番 = 16分
+  8: 24,  // 8番 = 24分
+  9: 32,  // 9番 = 32分
+  10: 48, // 10番 = 48分
+  11: 64, // 11番 = 64分
+  12: 96, // 12番 = 96分
+  13: 128, // 13番 = 128分
 };
 
 // Variant Configurations
@@ -64,10 +65,10 @@ export const VARIANT_CONFIGS: Record<GameVariant, VariantConfig> = {
     id: 'hongkong',
     name: '香港麻雀',
     nameEn: 'Hong Kong Mahjong',
-    description: '13張 · 番數制 · 全銃/半銃',
+    description: '13張 · 番數制 · 簡化計分',
     basePoints: 1, // Base unit, actual points from HONG_KONG_FAN_TABLE
     scoringUnit: '番',
-    selfDrawMultiplier: 1.5, // 自摸 ×1.5 (each player pays this amount)
+    selfDrawMultiplier: 1, // 簡化版：每家付固定分數（不乘倍數）
     dealerBonus: 0,
     dealerRepeatBonus: 0,
     hasFlowers: true,
@@ -292,16 +293,15 @@ export function calculateHongKongScore(
   isDealer: boolean,
   config: VariantConfig
 ): { winnerPoints: number; loserPoints: number; breakdown: string } {
-  // Use Hong Kong fan table for standard scoring
+  // Use simplified Hong Kong fan table
+  // 自摸每家付固定分數（不乘1.5）
   const basePoints = HONG_KONG_FAN_TABLE[fan] || fan * 2;
-  let breakdown = `${fan}番 = ${basePoints}分`;
   
   if (isSelfDraw) {
-    // Self-draw: each player pays basePoints × selfDrawMultiplier
-    // Winner gets paid by all 3 other players
-    const perPersonPayment = Math.round(basePoints * config.selfDrawMultiplier);
+    // 自摸：每家付 basePoints，赢家收 basePoints × 3
+    const perPersonPayment = basePoints;
     const totalWin = perPersonPayment * 3;
-    breakdown += ` × ${config.selfDrawMultiplier} (自摸) = ${perPersonPayment}分/人`;
+    const breakdown = `${fan}番 = ${basePoints}分/家 (自摸)，${basePoints} × 3 = ${totalWin}分`;
     
     return {
       winnerPoints: totalWin,
@@ -310,8 +310,8 @@ export function calculateHongKongScore(
     };
   }
   
-  // Discard (出銃): loser pays full amount
-  breakdown += ' (出銃)';
+  // 出銃：出銃者付 basePoints
+  const breakdown = `${fan}番 = ${basePoints}分 (出銃)`;
   return {
     winnerPoints: basePoints,
     loserPoints: -basePoints,

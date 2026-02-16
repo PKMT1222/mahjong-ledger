@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   VARIANT_CONFIGS, 
-  HAND_TYPES_BY_VARIANT, 
+  HAND_TYPES_BY_VARIANT,
+  HONG_KONG_FAN_TABLE, 
   calculateScore,
   GameVariant 
 } from '@/lib/mahjongRules';
@@ -145,64 +146,47 @@ export default function GamePage() {
     
     // Use custom rule if available
     if (customRule) {
-      // Calculate base points
-      const basePoints = customRule.fanPoints[totalValue] || totalValue * 4;
+      // Calculate base points from fan table
+      const basePoints = customRule.fanPoints[totalValue] || totalValue * 2;
       
-      // Self-draw: base × selfDrawMultiplier (e.g., 8 × 1.5 = 12 per person)
-      const perPersonAmount = Math.round(basePoints * customRule.selfDrawMultiplier);
-      
-      // Bao self-draw: 包家 pays perPersonAmount only (12分)
-      // Normal self-draw: winner gets perPersonAmount × (n-1) from 3 players (36分)
+      // 簡化版計分：每家付 basePoints，不乘倍數
       const otherPlayerCount = players.length - 1;
-      const baoSelfDrawTotal = perPersonAmount; // 包家只付12分
-      const normalSelfDrawTotal = perPersonAmount * otherPlayerCount; // 贏家收36分
+      const perPersonAmount = basePoints;
+      const totalWin = perPersonAmount * otherPlayerCount;
       
       return {
         base: totalValue,
-        final: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
+        final: isBaoZimo ? perPersonAmount : totalWin,
         breakdown: isBaoZimo 
-          ? `${totalValue}番 × ${customRule.selfDrawMultiplier} = ${perPersonAmount}分 (包自摸)`
-          : `${totalValue}番 × ${customRule.selfDrawMultiplier} = ${perPersonAmount}分 × ${otherPlayerCount}人 = ${normalSelfDrawTotal}分`,
+          ? `${totalValue}番 = ${perPersonAmount}分 (包自摸)`
+          : `${totalValue}番 = ${perPersonAmount}分 × ${otherPlayerCount}家 = ${totalWin}分`,
         payments: {
-          winner: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
+          winner: isBaoZimo ? perPersonAmount : totalWin,
           losers: -perPersonAmount,
         },
         totalWinners: winnerIds.length,
-        selfDrawTotal: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal
+        selfDrawTotal: perPersonAmount
       };
     }
     
-    // Otherwise use variant default
-    const result = calculateScore(variant, {
-      value: totalValue,
-      fu: config.useFu ? fu : undefined,
-      isSelfDraw: true,
-      isDealer: isDealer || false,
-      dealerRepeat: game?.dealer_repeat || 0,
-      honba: 0,
-    }, config);
-    
-    // result.winnerPoints from calculateScore should be per-person amount
-    const perPersonAmount = result.winnerPoints;
+    // Otherwise use variant default (simplified scoring)
     const otherPlayerCount = players.length - 1;
-    
-    // Bao self-draw: 包家 pays perPersonAmount only (12分)
-    // Normal self-draw: winner gets perPersonAmount × (n-1) from 3 players (36分)
-    const baoSelfDrawTotal = perPersonAmount; // 包家只付12分
-    const normalSelfDrawTotal = perPersonAmount * otherPlayerCount; // 贏家收36分
+    // Use the fan table directly
+    const perPersonAmount = HONG_KONG_FAN_TABLE[totalValue] || totalValue * 2;
+    const totalWin = perPersonAmount * otherPlayerCount;
     
     return {
       base: totalValue,
-      final: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
+      final: isBaoZimo ? perPersonAmount : totalWin,
       breakdown: isBaoZimo
-        ? `${totalValue}番 × ${config.selfDrawMultiplier} = ${perPersonAmount}分 (包自摸)`
-        : `${totalValue}番 × ${config.selfDrawMultiplier} = ${perPersonAmount}分 × ${otherPlayerCount}人 = ${normalSelfDrawTotal}分`,
+        ? `${totalValue}番 = ${perPersonAmount}分 (包自摸)`
+        : `${totalValue}番 = ${perPersonAmount}分 × ${otherPlayerCount}家 = ${totalWin}分`,
       payments: {
-        winner: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
+        winner: isBaoZimo ? perPersonAmount : totalWin,
         losers: -perPersonAmount,
       },
       totalWinners: winnerIds.length,
-      selfDrawTotal: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal
+      selfDrawTotal: perPersonAmount
     };
   }
 
