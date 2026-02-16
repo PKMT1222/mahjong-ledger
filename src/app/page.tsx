@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { GameVariant, Player } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 const VARIANTS: { id: GameVariant; name: string; emoji: string; desc: string }[] = [
   { id: 'hongkong', name: '香港麻雀', emoji: '🇭🇰', desc: '港式13張 - 主打' },
@@ -13,6 +14,7 @@ const VARIANTS: { id: GameVariant; name: string; emoji: string; desc: string }[]
 ];
 
 export default function Home() {
+  const { user, logout } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
   const [games, setGames] = useState<any[]>([]);
   const [showNewGame, setShowNewGame] = useState(false);
@@ -100,12 +102,38 @@ export default function Home() {
             <span className="text-4xl">🇭🇰</span>
             香港麻雀計數機
           </h1>
-          <button 
-            onClick={initDb}
-            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition"
-          >
-            初始化資料庫
-          </button>
+          <div className="flex items-center gap-3">
+            <Link 
+              href="/games" 
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition"
+            >
+              🔍 搜尋牌局
+            </Link>
+            {user ? (
+              <div className="flex items-center gap-3">
+                <span className="text-white/80 text-sm">👤 {user.username}</span>
+                <button 
+                  onClick={logout}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition"
+                >
+                  登出
+                </button>
+              </div>
+            ) : (
+              <Link 
+                href="/auth" 
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition"
+              >
+                登入 / 註冊
+              </Link>
+            )}
+            <button 
+              onClick={initDb}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition"
+            >
+              初始化資料庫
+            </button>
+          </div>
         </div>
       </header>
 

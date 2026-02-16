@@ -3,27 +3,42 @@ import pool from '@/lib/db';
 
 export async function POST() {
   try {
-    // Players table
+    // Users table for authentication
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        email VARCHAR(100) UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP
+      )
+    `);
+
+    // Players table (now linked to users optionally)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS players (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL UNIQUE,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        name VARCHAR(100) NOT NULL,
         avatar_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Games table with variant support
+    // Games table with user ownership
     await pool.query(`
       CREATE TABLE IF NOT EXISTS games (
         id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         name VARCHAR(200) NOT NULL,
-        variant VARCHAR(20) NOT NULL DEFAULT 'taiwan',
+        variant VARCHAR(20) NOT NULL DEFAULT 'hongkong',
         status VARCHAR(20) DEFAULT 'active',
         settings JSONB DEFAULT '{}',
         current_round INTEGER DEFAULT 1,
         current_wind VARCHAR(10) DEFAULT '東',
         dealer_repeat INTEGER DEFAULT 0,
+        is_public BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP
       )
@@ -38,7 +53,6 @@ export async function POST() {
         seat_position INTEGER NOT NULL,
         final_score INTEGER DEFAULT 0,
         is_dealer BOOLEAN DEFAULT FALSE,
-        -- Statistics
         wins INTEGER DEFAULT 0,
         self_draws INTEGER DEFAULT 0,
         deal_ins INTEGER DEFAULT 0,
@@ -57,29 +71,20 @@ export async function POST() {
         hand_number INTEGER NOT NULL,
         dealer_id INTEGER REFERENCES players(id),
         dealer_position INTEGER,
-        
-        -- Results (support multiple winners for 一炮多響)
         winner_ids INTEGER[] DEFAULT '{}',
         loser_id INTEGER REFERENCES players(id),
         is_self_draw BOOLEAN DEFAULT FALSE,
-        
-        -- Scoring
         hand_type VARCHAR(100),
         base_tai INTEGER DEFAULT 0,
         dealer_repeat INTEGER DEFAULT 0,
         total_points INTEGER DEFAULT 0,
-        
-        -- Special flags
         is_bao_zimo BOOLEAN DEFAULT FALSE,
         is_liichi BOOLEAN DEFAULT FALSE,
         is_kong BOOLEAN DEFAULT FALSE,
         is_surrender BOOLEAN DEFAULT FALSE,
         is_false_win BOOLEAN DEFAULT FALSE,
         is_exhaustive_draw BOOLEAN DEFAULT FALSE,
-        
-        -- Calculated scores per player (JSON)
         player_scores JSONB DEFAULT '{}',
-        
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -139,7 +144,7 @@ export async function POST() {
 
     return NextResponse.json({ 
       success: true,
-      message: 'Database initialized successfully with full Mahjong Ledger schema'
+      message: 'Database initialized successfully with auth support'
     });
   } catch (error) {
     console.error('Database initialization error:', error);
