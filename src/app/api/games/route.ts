@@ -1,23 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import jwt from 'jsonwebtoken';
 import { GameVariant } from '@/types';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
-// Helper to get user from token
-async function getUserFromToken(request: Request): Promise<{ userId: number; username: string } | null> {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  
-  try {
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; username: string };
-    return decoded;
-  } catch {
-    return null;
-  }
-}
 
 // Default settings for each variant
 const DEFAULT_SETTINGS: Record<GameVariant, any> = {
@@ -61,22 +44,15 @@ const DEFAULT_SETTINGS: Record<GameVariant, any> = {
   },
 };
 
-// GET /api/games - List all games (with optional search/filter)
+// GET /api/games - List all games (simple, no auth)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get('search');
-    const variant = searchParams.get('variant');
     const status = searchParams.get('status');
-    const userId = searchParams.get('userId');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const offset = (page - 1) * limit;
     
     let query = `
       SELECT 
         g.*,
-        u.username as owner_username,
         COUNT(gp.player_id) as player_count,
         COALESCE(
           JSON_AGG(
@@ -94,81 +70,23 @@ export async function GET(request: Request) {
           '[]'
         ) as players
       FROM games g
-      LEFT JOIN users u ON g.user_id = u.id
       LEFT JOIN game_players gp ON g.id = gp.game_id
       LEFT JOIN players p ON gp.player_id = p.id
-      WHERE (g.is_public = TRUE OR g.user_id = $1)
+      WHERE 1=1
     `;
     
-    const params: any[] = [userId || null];
-    let paramIndex = 2;
-    
-    if (search) {
-      query += ` AND (g.name ILIKE $${paramIndex} OR u.username ILIKE $${paramIndex})`;
-      params.push(`%${search}%`);
-      paramIndex++;
-    }
-    
-    if (variant) {
-      query += ` AND g.variant = $${paramIndex}`;
-      params.push(variant);
-      paramIndex++;
-    }
+    const params: any[] = [];
     
     if (status) {
-      query += ` AND g.status = $${paramIndex}`;
+      query += ` AND g.status = $1`;
       params.push(status);
-      paramIndex++;
     }
     
-    if (userId) {
-      query += ` AND g.user_id = $${paramIndex}`;
-      params.push(userId);
-      paramIndex++;
-    }
-    
-    query += ` GROUP BY g.id, u.username ORDER BY g.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
+    query += ` GROUP BY g.id ORDER BY g.created_at DESC`;
     
     const result = await pool.query(query, params);
     
-    // Get total count for pagination
-    let countQuery = 'SELECT COUNT(*) FROM games g WHERE (g.is_public = TRUE OR g.user_id = $1)';
-    const countParams: any[] = [userId || null];
-    let countIndex = 2;
-    
-    if (search) {
-      countQuery += ` AND (g.name ILIKE $${countIndex})`;
-      countParams.push(`%${search}%`);
-      countIndex++;
-    }
-    if (variant) {
-      countQuery += ` AND g.variant = $${countIndex}`;
-      countParams.push(variant);
-      countIndex++;
-    }
-    if (status) {
-      countQuery += ` AND g.status = $${countIndex}`;
-      countParams.push(status);
-      countIndex++;
-    }
-    if (userId) {
-      countQuery += ` AND g.user_id = $${countIndex}`;
-      countParams.push(userId);
-    }
-    
-    const countResult = await pool.query(countQuery, countParams);
-    const total = parseInt(countResult.rows[0].count);
-    
-    return NextResponse.json({
-      games: result.rows,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
-    });
+    return NextResponse.json(result.rows);
   } catch (error) {
     console.error('Error fetching games:', error);
     return NextResponse.json({ 
@@ -177,16 +95,10 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/games - Create new game (requires auth)
+// POST /api/games - Create new game (no auth required)
 export async function POST(request: Request) {
   try {
-    const user = await getUserFromToken(request);
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-    
-    const { name, variant, playerIds, customSettings, isPublic = true } = await request.json();
+    const { name, variant, playerIds, customSettings } = await request.json();
     
     if (!name || !playerIds || playerIds.length < 3) {
       return NextResponse.json({ error: 'Invalid game data' }, { status: 400 });
@@ -198,11 +110,11 @@ export async function POST(request: Request) {
       ...customSettings,
     };
     
-    // Create game with user_id
+    // Create game (no user_id)
     const gameResult = await pool.query(
-      `INSERT INTO games (user_id, name, variant, settings, current_wind, is_public) 
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [user.userId, name, variant, JSON.stringify(settings), '東', isPublic]
+      `INSERT INTO games (name, variant, settings, current_wind) 
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [name, variant, JSON.stringify(settings), '東']
     );
     const gameId = gameResult.rows[0].id;
     
@@ -227,30 +139,10 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT /api/games - Update game (requires auth)
+// PUT /api/games - Update game
 export async function PUT(request: Request) {
   try {
-    const user = await getUserFromToken(request);
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-    
-    const { id, status, settings, is_public } = await request.json();
-    
-    // Verify ownership
-    const gameCheck = await pool.query(
-      'SELECT user_id FROM games WHERE id = $1',
-      [id]
-    );
-    
-    if (gameCheck.rows.length === 0) {
-      return NextResponse.json({ error: 'Game not found' }, { status: 404 });
-    }
-    
-    if (gameCheck.rows[0].user_id !== user.userId) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
+    const { id, status, settings } = await request.json();
     
     const updates: string[] = [];
     const values: any[] = [];
@@ -267,11 +159,6 @@ export async function PUT(request: Request) {
     if (settings) {
       updates.push(`settings = $${paramIndex++}`);
       values.push(JSON.stringify(settings));
-    }
-    
-    if (is_public !== undefined) {
-      updates.push(`is_public = $${paramIndex++}`);
-      values.push(is_public);
     }
     
     values.push(id);

@@ -3,34 +3,20 @@ import pool from '@/lib/db';
 
 export async function POST() {
   try {
-    // Users table for authentication
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(50) NOT NULL UNIQUE,
-        email VARCHAR(100) UNIQUE,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_login TIMESTAMP
-      )
-    `);
-
-    // Players table (now linked to users optionally)
+    // Players table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS players (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         name VARCHAR(100) NOT NULL,
         avatar_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Games table with user ownership
+    // Games table (simple, no user_id)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS games (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         name VARCHAR(200) NOT NULL,
         variant VARCHAR(20) NOT NULL DEFAULT 'hongkong',
         status VARCHAR(20) DEFAULT 'active',
@@ -38,7 +24,6 @@ export async function POST() {
         current_round INTEGER DEFAULT 1,
         current_wind VARCHAR(10) DEFAULT '東',
         dealer_repeat INTEGER DEFAULT 0,
-        is_public BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP
       )
@@ -144,7 +129,7 @@ export async function POST() {
 
     return NextResponse.json({ 
       success: true,
-      message: 'Database initialized successfully with auth support'
+      message: 'Database initialized successfully'
     });
   } catch (error) {
     console.error('Database initialization error:', error);
