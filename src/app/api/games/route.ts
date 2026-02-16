@@ -90,7 +90,8 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Error fetching games:', error);
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 }
@@ -98,10 +99,16 @@ export async function GET(request: Request) {
 // POST /api/games - Create new game (no auth required)
 export async function POST(request: Request) {
   try {
-    const { name, variant, playerIds, customSettings } = await request.json();
+    const body = await request.json();
+    const { name, variant, playerIds, customSettings } = body;
     
-    if (!name || !playerIds || playerIds.length < 3) {
-      return NextResponse.json({ error: 'Invalid game data' }, { status: 400 });
+    console.log('Creating game:', { name, variant, playerIds, customSettings });
+    
+    if (!name || !playerIds || !Array.isArray(playerIds) || playerIds.length < 3) {
+      return NextResponse.json({ 
+        error: 'Invalid game data: need name and at least 3 players',
+        received: { name, playerIds: playerIds?.length }
+      }, { status: 400 });
     }
     
     // Merge default settings with custom settings
@@ -117,6 +124,7 @@ export async function POST(request: Request) {
       [name, variant, JSON.stringify(settings), '東']
     );
     const gameId = gameResult.rows[0].id;
+    console.log('Game created with ID:', gameId);
     
     // Add players to game with positions
     for (let i = 0; i < playerIds.length; i++) {
@@ -129,12 +137,14 @@ export async function POST(request: Request) {
         [gameId, playerId, i + 1, isDealer, settings.startPoints || 0]
       );
     }
+    console.log('Players added to game');
     
     return NextResponse.json(gameResult.rows[0]);
   } catch (error) {
     console.error('Error creating game:', error);
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 }
@@ -170,8 +180,9 @@ export async function PUT(request: Request) {
     
     return NextResponse.json(result.rows[0]);
   } catch (error) {
+    console.error('Error updating game:', error);
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

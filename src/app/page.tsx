@@ -15,25 +15,63 @@ export default function Home() {
   }, []);
 
   async function fetchData() {
-    const [playersRes, gamesRes] = await Promise.all([
-      fetch('/api/players'),
-      fetch('/api/games')
-    ]);
-    if (playersRes.ok) setPlayers(await playersRes.json());
-    if (gamesRes.ok) setGames(await gamesRes.json());
+    try {
+      const [playersRes, gamesRes] = await Promise.all([
+        fetch('/api/players'),
+        fetch('/api/games')
+      ]);
+      
+      if (playersRes.ok) {
+        const playersData = await playersRes.json();
+        if (Array.isArray(playersData)) {
+          setPlayers(playersData);
+        } else {
+          console.error('Players data is not an array:', playersData);
+          setPlayers([]);
+        }
+      } else {
+        const error = await playersRes.json();
+        console.error('Failed to fetch players:', error);
+        setPlayers([]);
+      }
+      
+      if (gamesRes.ok) {
+        const gamesData = await gamesRes.json();
+        if (Array.isArray(gamesData)) {
+          setGames(gamesData);
+        } else {
+          console.error('Games data is not an array:', gamesData);
+          setGames([]);
+        }
+      } else {
+        const error = await gamesRes.json();
+        console.error('Failed to fetch games:', error);
+        setGames([]);
+      }
+    } catch (error: any) {
+      console.error('Fetch error:', error);
+      alert('載入數據失敗，請檢查數據庫是否已初始化');
+    }
   }
 
   async function addPlayer(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch('/api/players', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newPlayerName })
-    });
-    if (res.ok) {
-      setNewPlayerName('');
-      setShowAddPlayer(false);
-      fetchData();
+    try {
+      const res = await fetch('/api/players', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newPlayerName })
+      });
+      if (res.ok) {
+        setNewPlayerName('');
+        setShowAddPlayer(false);
+        fetchData();
+      } else {
+        const error = await res.json();
+        alert('添加玩家失敗: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      alert('添加玩家失敗: ' + error.message);
     }
   }
 
@@ -43,32 +81,47 @@ export default function Home() {
       return;
     }
     
-    const selectedPlayers = players.slice(0, 4).map(p => p.id);
-    
-    const res = await fetch('/api/games', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        name: '麻雀局', 
-        variant: 'hongkong',
-        playerIds: selectedPlayers,
-        customSettings: {
-          fullLiability: true,
-          selfDrawMultiplier: 2,
-        }
-      })
-    });
-    
-    if (res.ok) {
-      const game = await res.json();
-      window.location.href = `/game/${game.id}`;
+    try {
+      const selectedPlayers = players.slice(0, 4).map(p => p.id);
+      
+      const res = await fetch('/api/games', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: '麻雀局', 
+          variant: 'hongkong',
+          playerIds: selectedPlayers,
+          customSettings: {
+            fullLiability: true,
+            selfDrawMultiplier: 2,
+          }
+        })
+      });
+      
+      if (res.ok) {
+        const game = await res.json();
+        window.location.href = `/game/${game.id}`;
+      } else {
+        const error = await res.json();
+        alert('開局失敗: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      alert('開局失敗: ' + error.message);
     }
   }
 
   async function initDb() {
-    const res = await fetch('/api/init', { method: 'POST' });
-    const data = await res.json();
-    alert(data.message || data.error);
+    try {
+      const res = await fetch('/api/init', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        alert('✅ ' + data.message);
+      } else {
+        alert('❌ Error: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      alert('❌ Failed to initialize: ' + error.message);
+    }
   }
 
   return (

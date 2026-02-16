@@ -3,6 +3,8 @@ import pool from '@/lib/db';
 
 export async function POST() {
   try {
+    console.log('Starting database initialization...');
+    
     // Players table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS players (
@@ -12,6 +14,7 @@ export async function POST() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('✓ players table created');
 
     // Games table (simple, no user_id)
     await pool.query(`
@@ -28,6 +31,7 @@ export async function POST() {
         completed_at TIMESTAMP
       )
     `);
+    console.log('✓ games table created');
 
     // Game players with stats
     await pool.query(`
@@ -45,6 +49,7 @@ export async function POST() {
         UNIQUE(game_id, player_id)
       )
     `);
+    console.log('✓ game_players table created');
 
     // Rounds with full scoring details
     await pool.query(`
@@ -74,6 +79,7 @@ export async function POST() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('✓ rounds table created');
 
     // Hand details for multi-hand support
     await pool.query(`
@@ -86,6 +92,7 @@ export async function POST() {
         points INTEGER DEFAULT 0
       )
     `);
+    console.log('✓ round_hands table created');
 
     // Transactions for settlements
     await pool.query(`
@@ -99,6 +106,7 @@ export async function POST() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('✓ transactions table created');
 
     // Game history / undo stack
     await pool.query(`
@@ -110,6 +118,7 @@ export async function POST() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('✓ game_history table created');
 
     // Player statistics across all games
     await pool.query(`
@@ -126,16 +135,19 @@ export async function POST() {
         UNIQUE(player_id, variant)
       )
     `);
+    console.log('✓ player_stats table created');
 
     return NextResponse.json({ 
       success: true,
-      message: 'Database initialized successfully'
+      message: 'Database initialized successfully',
+      tables: ['players', 'games', 'game_players', 'rounds', 'round_hands', 'transactions', 'game_history', 'player_stats']
     });
   } catch (error) {
     console.error('Database initialization error:', error);
     return NextResponse.json({ 
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 }
