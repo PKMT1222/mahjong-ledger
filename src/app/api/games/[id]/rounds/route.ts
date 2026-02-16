@@ -44,12 +44,25 @@ export async function GET(
   }
 }
 
+// Helper function to ensure columns exist
+async function ensureColumns() {
+  try {
+    await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS is_draw BOOLEAN DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS pass_dealer BOOLEAN DEFAULT FALSE`);
+  } catch (e) {
+    // Ignore errors
+  }
+}
+
 // POST /api/games/[id]/rounds - Add a new round
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Ensure columns exist first
+    await ensureColumns();
+    
     const { id } = await params;
     
     // Parse request body
