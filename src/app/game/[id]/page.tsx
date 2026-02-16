@@ -29,59 +29,34 @@ interface Round {
   is_bao_zimo: boolean;
 }
 
-// 香港麻雀番種表 (Hong Kong Mahjong Hand Types)
-const HK_HAND_TYPES = [
-  // 基本番種
+// 默認香港麻雀番種表
+const DEFAULT_HAND_TYPES = [
   { name: '雞胡', fan: 0, category: 'basic', desc: '普通胡牌' },
   { name: '無花', fan: 1, category: 'flower', desc: '沒有花牌' },
   { name: '正花', fan: 1, category: 'flower', desc: '正位花牌' },
   { name: '花胡', fan: 3, category: 'flower', desc: '集齊8隻花' },
-  
-  // 門前清/自摸
   { name: '自摸', fan: 1, category: 'win', desc: '自己摸糊' },
   { name: '門前清', fan: 1, category: 'basic', desc: '沒有碰/上家的吃' },
-  
-  // 槓相關
   { name: '槓上開花', fan: 3, category: 'kong', desc: '槓牌後摸糊' },
   { name: '搶槓', fan: 3, category: 'kong', desc: '搶別人加槓' },
   { name: '槓上槓', fan: 8, category: 'kong', desc: '連續槓上開花' },
-  
-  // 特殊糊法
   { name: '海底撈月', fan: 3, category: 'special', desc: '最後一隻牌自摸' },
   { name: '河底撈魚', fan: 3, category: 'special', desc: '最後一隻牌出統' },
-  
-  // 對子/刻子相關
   { name: '碰碰胡', fan: 3, category: 'combination', desc: '全對對/刻子' },
   { name: '三暗刻', fan: 3, category: 'combination', desc: '三組暗刻' },
   { name: '四暗刻', fan: 13, category: 'combination', desc: '四組暗刻' },
   { name: '十八羅漢', fan: 13, category: 'combination', desc: '四槓子' },
-  
-  // 花色相關
   { name: '混一色', fan: 3, category: 'suit', desc: '一色+字牌' },
   { name: '清一色', fan: 7, category: 'suit', desc: '同一花色' },
-  
-  // 么九相關
   { name: '混么九', fan: 7, category: 'terminal', desc: '么九+字牌' },
   { name: '清么九', fan: 7, category: 'terminal', desc: '全么九' },
-  
-  // 對子相關
   { name: '七對', fan: 4, category: 'combination', desc: '七對子' },
-  
-  // 三元牌
   { name: '小三元', fan: 5, category: 'honor', desc: '中發白兩刻+一對' },
   { name: '大三元', fan: 8, category: 'honor', desc: '中發白三刻' },
-  
-  // 風牌
   { name: '小四喜', fan: 10, category: 'honor', desc: '東南西北三刻+一對' },
   { name: '大四喜', fan: 13, category: 'honor', desc: '東南西北四刻' },
-  
-  // 字一色
   { name: '字一色', fan: 13, category: 'honor', desc: '全字牌' },
-  
-  // 十三么
   { name: '十三么', fan: 13, category: 'special', desc: '十三種么九' },
-  
-  // 天/地/人胡
   { name: '天胡', fan: 13, category: 'limit', desc: '莊家起手即糊' },
   { name: '地胡', fan: 13, category: 'limit', desc: '閒家第一圈摸糊' },
   { name: '人胡', fan: 13, category: 'limit', desc: '閒家第一圈食出統' },
@@ -98,6 +73,19 @@ export default function GamePage() {
   const [rounds, setRounds] = useState<Round[]>([]);
   const [showRecord, setShowRecord] = useState(false);
   const [activeTab, setActiveTab] = useState<'record' | 'history' | 'stats'>('record');
+  const [handTypes, setHandTypes] = useState(DEFAULT_HAND_TYPES);
+
+  // Load custom hand types from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('hkHandTypes');
+    if (saved) {
+      try {
+        setHandTypes(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load custom hand types');
+      }
+    }
+  }, []);
   
   // Form state
   const [winnerId, setWinnerId] = useState('');
@@ -130,7 +118,7 @@ export default function GamePage() {
 
   // Calculate total fan
   const totalFan = selectedHands.reduce((sum, handName) => {
-    const hand = HK_HAND_TYPES.find(h => h.name === handName);
+    const hand = handTypes.find(h => h.name === handName);
     return sum + (hand?.fan || 0);
   }, 0);
 
@@ -168,7 +156,7 @@ export default function GamePage() {
         is_bao_zimo: isBaoZimo,
         hand_types: selectedHands.map(name => ({ 
           name, 
-          tai: HK_HAND_TYPES.find(h => h.name === name)?.fan || 0 
+          tai: handTypes.find(h => h.name === name)?.fan || 0 
         })),
         base_tai: totalFan,
         total_points: score.final,
@@ -197,7 +185,7 @@ export default function GamePage() {
       setSelectedHands(selectedHands.filter(h => h !== handName));
     } else {
       // Check mutually exclusive hands
-      const hand = HK_HAND_TYPES.find(h => h.name === handName);
+      const hand = handTypes.find(h => h.name === handName);
       if (hand) {
         // Remove conflicting hands
         const conflicts: { [key: string]: string[] } = {
@@ -240,8 +228,8 @@ export default function GamePage() {
 
   // Filter hands by category
   const filteredHands = handFilter === 'all' 
-    ? HK_HAND_TYPES 
-    : HK_HAND_TYPES.filter(h => h.category === handFilter);
+    ? handTypes 
+    : handTypes.filter(h => h.category === handFilter);
 
   // Group hands by category for display
   const categories = [

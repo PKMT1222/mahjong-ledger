@@ -166,9 +166,14 @@ export default function Home() {
       <header className="bg-red-700 text-white p-4">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <h1 className="text-xl font-bold">🇭🇰 麻雀記帳</h1>
-          <button onClick={initDb} className="text-xs bg-red-800 px-3 py-1 rounded">
-            初始化
-          </button>
+          <div className="flex items-center gap-2">
+            <Link href="/settings" className="text-xs bg-red-800 px-3 py-1 rounded">
+              ⚙️ 番種
+            </Link>
+            <button onClick={initDb} className="text-xs bg-red-800 px-3 py-1 rounded">
+              初始化
+            </button>
+          </div>
         </div>
       </header>
 
