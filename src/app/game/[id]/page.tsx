@@ -185,18 +185,24 @@ export default function GamePage() {
     // result.winnerPoints from calculateScore should be per-person amount
     const perPersonAmount = result.winnerPoints;
     const otherPlayerCount = players.length - 1;
-    const selfDrawTotal = perPersonAmount * otherPlayerCount; // 12 × 3 = 36
+    
+    // Bao self-draw: 包家 pays perPersonAmount only (12分)
+    // Normal self-draw: winner gets perPersonAmount × (n-1) from 3 players (36分)
+    const baoSelfDrawTotal = perPersonAmount; // 包家只付12分
+    const normalSelfDrawTotal = perPersonAmount * otherPlayerCount; // 贏家收36分
     
     return {
       base: totalValue,
-      final: selfDrawTotal,
-      breakdown: `${totalValue}番 × ${config.selfDrawMultiplier} = ${perPersonAmount}分 × ${otherPlayerCount}人 = ${selfDrawTotal}分`,
+      final: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
+      breakdown: isBaoZimo
+        ? `${totalValue}番 × ${config.selfDrawMultiplier} = ${perPersonAmount}分 (包自摸)`
+        : `${totalValue}番 × ${config.selfDrawMultiplier} = ${perPersonAmount}分 × ${otherPlayerCount}人 = ${normalSelfDrawTotal}分`,
       payments: {
-        winner: selfDrawTotal,
+        winner: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
         losers: -perPersonAmount,
       },
       totalWinners: winnerIds.length,
-      selfDrawTotal: selfDrawTotal
+      selfDrawTotal: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal
     };
   }
 
