@@ -141,14 +141,26 @@ export default function GamePage() {
     totalWinners: number;
     selfDrawTotal?: number; // Total for bao self-draw
   } {
+    // Safety check - return default if data not ready
+    if (!game || !players || players.length === 0) {
+      return {
+        base: 0,
+        final: 0,
+        breakdown: '加載中...',
+        payments: { winner: 0, losers: 0 },
+        totalWinners: 0,
+        selfDrawTotal: 0
+      };
+    }
+
     const currentDealer = players.find(p => p.is_dealer);
     const isDealer = winnerIds.length === 1 && winnerIds[0] === currentDealer?.id.toString();
+    const otherPlayerCount = Math.max(players.length - 1, 3); // Default to 3 if not enough players
     
     // Use custom rule if available
     if (customRule) {
       // Calculate base points from fan table
       const basePoints = customRule.fanPoints[totalValue] || totalValue * 2;
-      const otherPlayerCount = players.length - 1;
       
       if (isBaoZimo) {
         // 包自摸：包家支付 (基本分數 × 1.5)
@@ -184,7 +196,6 @@ export default function GamePage() {
     }
     
     // Otherwise use variant default
-    const otherPlayerCount = players.length - 1;
     const basePoints = HONG_KONG_FAN_TABLE[totalValue] || totalValue * 2;
     
     if (isBaoZimo) {
