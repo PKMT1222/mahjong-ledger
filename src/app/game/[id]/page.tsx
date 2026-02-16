@@ -148,20 +148,34 @@ export default function GamePage() {
     if (customRule) {
       // Calculate base points from fan table
       const basePoints = customRule.fanPoints[totalValue] || totalValue * 2;
-      
-      // 簡化版計分：每家付 basePoints，不乘倍數
       const otherPlayerCount = players.length - 1;
-      const perPersonAmount = basePoints;
+      
+      if (isBaoZimo) {
+        // 包自摸：包家支付 (基本分數 × 1.5)
+        const baoAmount = Math.round(basePoints * 1.5);
+        return {
+          base: totalValue,
+          final: baoAmount,
+          breakdown: `${totalValue}番 = ${basePoints}分，包自摸 ${basePoints}×1.5 = ${baoAmount}分`,
+          payments: {
+            winner: baoAmount,
+            losers: -baoAmount,
+          },
+          totalWinners: winnerIds.length,
+          selfDrawTotal: baoAmount
+        };
+      }
+      
+      // 自摸：每家支付 (基本分數 × 0.5)
+      const perPersonAmount = Math.round(basePoints * 0.5);
       const totalWin = perPersonAmount * otherPlayerCount;
       
       return {
         base: totalValue,
-        final: isBaoZimo ? perPersonAmount : totalWin,
-        breakdown: isBaoZimo 
-          ? `${totalValue}番 = ${perPersonAmount}分 (包自摸)`
-          : `${totalValue}番 = ${perPersonAmount}分 × ${otherPlayerCount}家 = ${totalWin}分`,
+        final: totalWin,
+        breakdown: `${totalValue}番 = ${basePoints}分，自摸每家 ${basePoints}×0.5 = ${perPersonAmount}分，共 ${totalWin}分`,
         payments: {
-          winner: isBaoZimo ? perPersonAmount : totalWin,
+          winner: totalWin,
           losers: -perPersonAmount,
         },
         totalWinners: winnerIds.length,
@@ -169,20 +183,36 @@ export default function GamePage() {
       };
     }
     
-    // Otherwise use variant default (simplified scoring)
+    // Otherwise use variant default
     const otherPlayerCount = players.length - 1;
-    // Use the fan table directly
-    const perPersonAmount = HONG_KONG_FAN_TABLE[totalValue] || totalValue * 2;
+    const basePoints = HONG_KONG_FAN_TABLE[totalValue] || totalValue * 2;
+    
+    if (isBaoZimo) {
+      // 包自摸：包家支付 (基本分數 × 1.5)
+      const baoAmount = Math.round(basePoints * 1.5);
+      return {
+        base: totalValue,
+        final: baoAmount,
+        breakdown: `${totalValue}番 = ${basePoints}分，包自摸 ${basePoints}×1.5 = ${baoAmount}分`,
+        payments: {
+          winner: baoAmount,
+          losers: -baoAmount,
+        },
+        totalWinners: winnerIds.length,
+        selfDrawTotal: baoAmount
+      };
+    }
+    
+    // 自摸：每家支付 (基本分數 × 0.5)
+    const perPersonAmount = Math.round(basePoints * 0.5);
     const totalWin = perPersonAmount * otherPlayerCount;
     
     return {
       base: totalValue,
-      final: isBaoZimo ? perPersonAmount : totalWin,
-      breakdown: isBaoZimo
-        ? `${totalValue}番 = ${perPersonAmount}分 (包自摸)`
-        : `${totalValue}番 = ${perPersonAmount}分 × ${otherPlayerCount}家 = ${totalWin}分`,
+      final: totalWin,
+      breakdown: `${totalValue}番 = ${basePoints}分，自摸每家 ${basePoints}×0.5 = ${perPersonAmount}分，共 ${totalWin}分`,
       payments: {
-        winner: isBaoZimo ? perPersonAmount : totalWin,
+        winner: totalWin,
         losers: -perPersonAmount,
       },
       totalWinners: winnerIds.length,

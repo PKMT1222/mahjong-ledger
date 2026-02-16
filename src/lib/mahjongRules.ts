@@ -40,23 +40,25 @@ export interface VariantConfig {
   paymentStructure: 'diff' | 'same'; // diff = different payment, same = same payment
 }
 
-// Simplified Hong Kong Fan Points Table
-// 自摸每家付固定分數，不乘1.5
+// Standard Hong Kong Fan Points Table (Exponential)
+// 出銃: 支付基本分數
+// 自摸: 每家支付 (基本分數 × 0.5)
+// 包自摸: 包家支付 (基本分數 × 1.5)
 export const HONG_KONG_FAN_TABLE: Record<number, number> = {
-  0: 1,   // 雞胡
+  0: 1,   // 雞胡 = 1分
   1: 2,   // 1番 = 2分
-  2: 3,   // 2番 = 3分
-  3: 4,   // 3番 = 4分 (自摸每家付4分)
-  4: 6,   // 4番 = 6分
-  5: 8,   // 5番 = 8分
-  6: 12,  // 6番 = 12分
-  7: 16,  // 7番 = 16分
-  8: 24,  // 8番 = 24分
-  9: 32,  // 9番 = 32分
-  10: 48, // 10番 = 48分
-  11: 64, // 11番 = 64分
-  12: 96, // 12番 = 96分
-  13: 128, // 13番 = 128分
+  2: 4,   // 2番 = 4分
+  3: 8,   // 3番 = 8分 (自摸每家付 8×0.5=4分)
+  4: 16,  // 4番 = 16分
+  5: 24,  // 5番 = 24分
+  6: 32,  // 6番 = 32分
+  7: 48,  // 7番 = 48分
+  8: 64,  // 8番 = 64分
+  9: 96,  // 9番 = 96分
+  10: 128, // 10番 = 128分
+  11: 192, // 11番 = 192分
+  12: 256, // 12番 = 256分
+  13: 384, // 13番 = 384分
 };
 
 // Variant Configurations
@@ -65,10 +67,10 @@ export const VARIANT_CONFIGS: Record<GameVariant, VariantConfig> = {
     id: 'hongkong',
     name: '香港麻雀',
     nameEn: 'Hong Kong Mahjong',
-    description: '13張 · 番數制 · 簡化計分',
+    description: '13張 · 番數制 · 標準計分',
     basePoints: 1, // Base unit, actual points from HONG_KONG_FAN_TABLE
     scoringUnit: '番',
-    selfDrawMultiplier: 1, // 簡化版：每家付固定分數（不乘倍數）
+    selfDrawMultiplier: 0.5, // 自摸：每家付基本分數 × 0.5
     dealerBonus: 0,
     dealerRepeatBonus: 0,
     hasFlowers: true,
@@ -293,15 +295,13 @@ export function calculateHongKongScore(
   isDealer: boolean,
   config: VariantConfig
 ): { winnerPoints: number; loserPoints: number; breakdown: string } {
-  // Use simplified Hong Kong fan table
-  // 自摸每家付固定分數（不乘1.5）
   const basePoints = HONG_KONG_FAN_TABLE[fan] || fan * 2;
   
   if (isSelfDraw) {
-    // 自摸：每家付 basePoints，赢家收 basePoints × 3
-    const perPersonPayment = basePoints;
+    // 自摸：每家支付 (基本分數 × 0.5)
+    const perPersonPayment = Math.round(basePoints * 0.5);
     const totalWin = perPersonPayment * 3;
-    const breakdown = `${fan}番 = ${basePoints}分/家 (自摸)，${basePoints} × 3 = ${totalWin}分`;
+    const breakdown = `${fan}番 = ${basePoints}分，自摸每家 ${basePoints}×0.5 = ${perPersonPayment}分，共收 ${totalWin}分`;
     
     return {
       winnerPoints: totalWin,
@@ -310,7 +310,7 @@ export function calculateHongKongScore(
     };
   }
   
-  // 出銃：出銃者付 basePoints
+  // 出銃：出銃者支付全部番數分數
   const breakdown = `${fan}番 = ${basePoints}分 (出銃)`;
   return {
     winnerPoints: basePoints,

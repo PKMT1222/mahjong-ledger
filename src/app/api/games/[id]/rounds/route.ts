@@ -175,33 +175,34 @@ export async function POST(
       }
     } else if (is_self_draw) {
       if (is_bao_zimo && bao_payer_id) {
-        // Bao self-draw: selected payer pays just points (per-person amount, e.g., 12)
-        // Not multiplied by (n-1) - only the bao payer pays, and only once
+        // 包自摸：包家支付 (基本分數 × 1.5)
+        // points 是基本分數，需要 ×1.5
         const allPlayers = await pool.query(
           'SELECT player_id FROM game_players WHERE game_id = $1',
           [gameId]
         );
-        const baoAmount = points; // Just the per-person amount (e.g., 12)
+        const baoAmount = Math.round(points * 1.5); // 包自摸 = 基本分數 × 1.5
         for (const p of allPlayers.rows) {
           if (winner_ids.includes(p.player_id)) {
-            scores[p.player_id] = baoAmount; // Winner gets bao amount (12)
+            scores[p.player_id] = baoAmount; // Winner gets bao amount
           } else if (p.player_id === bao_payer_id) {
-            scores[p.player_id] = -baoAmount; // Bao payer pays bao amount (12)
+            scores[p.player_id] = -baoAmount; // Bao payer pays bao amount
           } else {
             scores[p.player_id] = 0; // Others pay nothing
           }
         }
       } else {
-        // Normal self draw: everyone else pays
+        // 自摸：每家支付 (基本分數 × 0.5)
         const allPlayers = await pool.query(
           'SELECT player_id FROM game_players WHERE game_id = $1',
           [gameId]
         );
+        const perPersonAmount = Math.round(points * 0.5); // 每人付基本分數 × 0.5
         for (const p of allPlayers.rows) {
           if (winner_ids.includes(p.player_id)) {
-            scores[p.player_id] = points * (allPlayers.rows.length - 1);
+            scores[p.player_id] = perPersonAmount * (allPlayers.rows.length - 1);
           } else {
-            scores[p.player_id] = -points;
+            scores[p.player_id] = -perPersonAmount;
           }
         }
       }
