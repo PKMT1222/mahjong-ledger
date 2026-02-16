@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Player } from '@/types';
+import { AnimatedButton, AnimatedCard, IconButton, FadeIn } from '@/components/AnimatedElements';
 
 export default function Home() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [games, setGames] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'stats'>('home');
+  const [deletingGameId, setDeletingGameId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -48,19 +50,39 @@ export default function Home() {
     
     if (!confirm(message)) return;
     
-    try {
-      const res = await fetch(`/api/games?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchData();
-        alert('✅ 對局已刪除');
-      } else {
-        const error = await res.json();
-        alert('❌ 刪除失敗: ' + (error.error || 'Unknown error'));
+    // Start delete animation
+    setDeletingGameId(id);
+    
+    // Wait for animation to complete before actually deleting
+    setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/games?id=${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          await fetchData();
+          setDeletingGameId(null);
+          // Show toast notification instead of alert
+          showToast('✅ 對局已刪除');
+        } else {
+          const error = await res.json();
+          setDeletingGameId(null);
+          alert('❌ 刪除失敗: ' + (error.error || 'Unknown error'));
+        }
+      } catch (error: any) {
+        setDeletingGameId(null);
+        alert('❌ 刪除失敗: ' + error.message);
       }
-    } catch (error: any) {
-      alert('❌ 刪除失敗: ' + error.message);
-    }
+    }, 300);
   }
+
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
+  
+  const showToast = useCallback((message: string) => {
+    setToast({ message, visible: true });
+    setTimeout(() => {
+      setToast({ message: '', visible: false });
+    }, 2000);
+  }, []);
 
   // Calculate win rate
   function calculateWinRate(playerId: number) {
@@ -101,9 +123,10 @@ export default function Home() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 ${
-                  activeTab === tab.id ? 'bg-red-600' : ''
+                className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-1 tab-press transition-all duration-150 ${
+                  activeTab === tab.id ? 'bg-red-600' : 'hover:bg-red-700/50'
                 }`}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
@@ -120,7 +143,8 @@ export default function Home() {
             {/* Quick Start */}
             <Link 
               href="/new-game"
-              className="block w-full bg-gradient-to-r from-red-600 to-red-500 text-white py-4 rounded-lg font-bold text-lg shadow-lg text-center"
+              className="block w-full bg-gradient-to-r from-red-600 to-red-500 text-white py-4 rounded-lg font-bold text-lg shadow-lg text-center btn-ripple"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               🀄 新增對局
             </Link>
@@ -130,34 +154,38 @@ export default function Home() {
               <div className="bg-white rounded-lg shadow p-4">
                 <h2 className="font-bold text-gray-800 mb-3">進行中對局</h2>
                 <div className="space-y-2">
-                  {games.filter(g => g.status === 'active').map(game => (
-                    <div 
-                      key={game.id}
-                      className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg group"
-                    >
-                      <Link 
-                        href={`/game/${game.id}`}
-                        className="flex-1"
+                  {games.filter(g => g.status === 'active').map((game, index) => (
+                    <FadeIn key={game.id} delay={index * 50}>
+                      <AnimatedCard
+                        isDeleting={deletingGameId === game.id}
+                        deleteDirection="right"
+                        className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg group"
                       >
-                        <p className="font-medium">{game.name}</p>
-                        <p className="text-xs text-gray-500">第{game.current_round}局 · {game.variant === 'hongkong' ? '香港' : game.variant === 'taiwan' ? '台灣' : game.variant === 'japanese' ? '日本' : game.variant}</p>
-                      </Link>
-                      <div className="flex items-center gap-2">
                         <Link 
                           href={`/game/${game.id}`}
-                          className="text-green-600"
+                          className="flex-1"
                         >
-                          進行中 →
+                          <p className="font-medium">{game.name}</p>
+                          <p className="text-xs text-gray-500">第{game.current_round}局 · {game.variant === 'hongkong' ? '香港' : game.variant === 'taiwan' ? '台灣' : game.variant === 'japanese' ? '日本' : game.variant}</p>
                         </Link>
-                        <button
-                          onClick={() => deleteGame(game.id, game.name, true)}
-                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-2 py-1 transition"
-                          title="刪除對局"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
+                        <div className="flex items-center gap-2">
+                          <Link 
+                            href={`/game/${game.id}`}
+                            className="text-green-600 btn-press inline-block"
+                          >
+                            進行中 →
+                          </Link>
+                          <IconButton
+                            onClick={() => deleteGame(game.id, game.name, true)}
+                            variant="delete"
+                            className="opacity-0 group-hover:opacity-100"
+                            title="刪除對局"
+                          >
+                            🗑️
+                          </IconButton>
+                        </div>
+                      </AnimatedCard>
+                    </FadeIn>
                   ))}
                 </div>
               </div>
@@ -217,41 +245,47 @@ export default function Home() {
               {games.length === 0 ? (
                 <p className="text-center text-gray-400 py-8">暫無歷史紀錄</p>
               ) : (
-                games.map(game => (
-                  <div key={game.id} className="bg-white rounded-lg shadow p-4">
-                    <div className="flex items-start justify-between">
-                      <Link href={`/game/${game.id}`} className="flex-1">
-                        <h3 className="font-bold">{game.name}</h3>
-                        <p className="text-sm text-gray-500">
-                          {new Date(game.created_at).toLocaleDateString('zh-HK')} · 
-                          {game.variant === 'hongkong' ? '香港麻雀' : game.variant}
-                        </p>
-                        <div className="flex gap-1 mt-2">
-                          {game.players?.slice(0, 4).map((p: any) => (
-                            <span key={p.id} className={`text-xs px-2 py-0.5 rounded ${
-                              p.final_score > 0 ? 'bg-green-100 text-green-700' : 
-                              p.final_score < 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100'
-                            }`}>
-                              {p.name} {p.final_score > 0 ? '+' : ''}{p.final_score}
-                            </span>
-                          ))}
+                games.map((game, index) => (
+                  <FadeIn key={game.id} delay={index * 30}>
+                    <AnimatedCard
+                      isDeleting={deletingGameId === game.id}
+                      deleteDirection="right"
+                      className="bg-white rounded-lg shadow p-4"
+                    >
+                      <div className="flex items-start justify-between">
+                        <Link href={`/game/${game.id}`} className="flex-1">
+                          <h3 className="font-bold">{game.name}</h3>
+                          <p className="text-sm text-gray-500">
+                            {new Date(game.created_at).toLocaleDateString('zh-HK')} · 
+                            {game.variant === 'hongkong' ? '香港麻雀' : game.variant}
+                          </p>
+                          <div className="flex gap-1 mt-2">
+                            {game.players?.slice(0, 4).map((p: any) => (
+                              <span key={p.id} className={`text-xs px-2 py-0.5 rounded ${
+                                p.final_score > 0 ? 'bg-green-100 text-green-700' : 
+                                p.final_score < 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100'
+                              }`}>
+                                {p.name} {p.final_score > 0 ? '+' : ''}{p.final_score}
+                              </span>
+                            ))}
+                          </div>
+                        </Link>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            game.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100'
+                          }`}>
+                            {game.status === 'active' ? '進行中' : '已完成'}
+                          </span>
+                          <button
+                            onClick={() => deleteGame(game.id, game.name, game.status === 'active')}
+                            className="text-red-400 hover:text-red-600 text-xs btn-press"
+                          >
+                            刪除
+                          </button>
                         </div>
-                      </Link>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          game.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100'
-                        }`}>
-                          {game.status === 'active' ? '進行中' : '已完成'}
-                        </span>
-                        <button
-                          onClick={() => deleteGame(game.id, game.name, game.status === 'active')}
-                          className="text-red-400 hover:text-red-600 text-xs"
-                        >
-                          刪除
-                        </button>
                       </div>
-                    </div>
-                  </div>
+                    </AnimatedCard>
+                  </FadeIn>
                 ))
               )}
             </div>
@@ -327,6 +361,17 @@ export default function Home() {
           </div>
         )}
       </main>
+      
+      {/* Toast Notification */}
+      <div 
+        className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${
+          toast.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+        }`}
+      >
+        <div className="bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
+          {toast.message}
+        </div>
+      </div>
     </div>
   );
 }
