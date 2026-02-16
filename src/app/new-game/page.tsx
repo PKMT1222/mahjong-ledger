@@ -2,7 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { VARIANT_CONFIGS, HAND_TYPES_BY_VARIANT, GameVariant } from '@/lib/mahjongRules';
+import { 
+  VARIANT_CONFIGS, 
+  GameVariant 
+} from '@/lib/mahjongRules';
+import { 
+  PRESET_RULES,
+  getCustomRules,
+  getAllRules,
+  GameRule,
+  calculateCustomScore
+} from '@/lib/customRules';
 
 const COLORS = [
   'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
@@ -12,6 +22,8 @@ const COLORS = [
 export default function NewGamePage() {
   const [step, setStep] = useState(1);
   const [variant, setVariant] = useState<GameVariant>('hongkong');
+  const [selectedRuleId, setSelectedRuleId] = useState<string>('');
+  const [rules, setRules] = useState<GameRule[]>([]);
   const [gameName, setGameName] = useState('');
   const [players, setPlayers] = useState<{ name: string; color: string }[]>([
     { name: '', color: COLORS[0] },
@@ -21,40 +33,45 @@ export default function NewGamePage() {
   ]);
   const [existingPlayers, setExistingPlayers] = useState<any[]>([]);
   
-  // Custom settings
-  const [customSettings, setCustomSettings] = useState({
-    basePoints: 1,
-    selfDrawMultiplier: 2,
-    dealerBonus: 0,
-    dealerRepeatBonus: 0,
-    useFu: false,
-    enableRiichi: false,
-    enableHonba: false,
-  });
+  // Load rules
+  useEffect(() => {
+    setRules(getAllRules());
+    setExistingPlayers([]);
+    fetch('/api/players')
+      .then(res => res.json())
+      .then(data => setExistingPlayers(data));
+  }, []);
 
+  // Get selected rule
+  const selectedRule = rules.find(r => r.id === selectedRuleId);
   const config = VARIANT_CONFIGS[variant];
 
   useEffect(() => {
+    if (!selectedRule) {
+      // Auto-select first rule of variant
+      const variantRules = rules.filter(r => {
+        // Map rule characteristics to variant
+        if (variant === 'hongkong' && !r.recordDealer && r.maxFan <= 13) {
+          return true;
+        }
+        if (variant === 'taiwan' && r.recordDealer) {
+          return true;
+        }
+        if (variant === 'japanese' && r.minFan >= 1) {
+          return true;
+        }
+        return r.id.startsWith('preset-');
+      });
+      if (variantRules.length > 0 && !selectedRuleId) {
+        setSelectedRuleId(variantRules[0].id);
+      }
+    }
+    
     const today = new Date();
     const dateStr = `${today.getMonth() + 1}/${today.getDate()}`;
     const randomCode = Math.random().toString(36).substring(2, 5).toUpperCase();
     setGameName(`${dateStr} ${config.name} ${randomCode}`);
-    
-    // Update default settings based on variant
-    setCustomSettings({
-      basePoints: config.basePoints,
-      selfDrawMultiplier: config.selfDrawMultiplier,
-      dealerBonus: config.dealerBonus,
-      dealerRepeatBonus: config.dealerRepeatBonus,
-      useFu: config.useFu,
-      enableRiichi: config.hasRiichi,
-      enableHonba: config.hasHonba,
-    });
-    
-    fetch('/api/players')
-      .then(res => res.json())
-      .then(data => setExistingPlayers(data));
-  }, [variant]);
+  }, [variant, rules, selectedRuleId]);
 
   function updatePlayer(index: number, field: 'name' | 'color', value: string) {
     const updated = [...players];
@@ -63,7 +80,7 @@ export default function NewGamePage() {
   }
 
   function validateStep1() {
-    return true; // variant is always set
+    return selectedRuleId !== '';
   }
 
   function validateStep2() {
@@ -90,7 +107,9 @@ export default function NewGamePage() {
         }
       }
 
-      // Create game with variant-specific settings
+      const rule = selectedRule || PRESET_RULES[0];
+
+      // Create game with rule settings
       const res = await fetch('/api/games', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -99,13 +118,17 @@ export default function NewGamePage() {
           variant,
           playerIds,
           customSettings: {
-            basePoints: customSettings.basePoints,
-            selfDrawMultiplier: customSettings.selfDrawMultiplier,
-            dealerBonus: customSettings.dealerBonus,
-            dealerRepeatBonus: customSettings.dealerRepeatBonus,
-            useFu: customSettings.useFu,
-            hasRiichi: customSettings.enableRiichi,
-            hasHonba: customSettings.enableHonba,
+            ruleId: rule.id,
+            ruleName: rule.name,
+            fullShoot: rule.fullShoot,
+            jackpotEnabled: rule.jackpotEnabled,
+            recordDealer: rule.recordDealer,
+            passDealerOnDraw: rule.passDealerOnDraw,
+            minFan: rule.minFan,
+            maxFan: rule.maxFan,
+            selfDrawMultiplier: rule.selfDrawMultiplier,
+            fanPoints: rule.fanPoints,
+            basePoints: rule.fanPoints[rule.minFan] || 1,
           },
         })
       });
@@ -119,7 +142,20 @@ export default function NewGamePage() {
     }
   }
 
-  const variantOptions = Object.values(VARIANT_CONFIGS);
+  // Filter rules by variant
+  const getRulesForVariant = (v: GameVariant) => {
+    return rules.filter(r => {
+      // Simple heuristic to categorize rules
+      if (v === 'taiwan') {
+        return r.maxFan >= 10 || r.id.includes('taiwan') || r.name.includes('台');
+      }
+      if (v === 'japanese') {
+        return r.minFan >= 1 || r.id.includes('japanese') || r.name.includes('日');
+      }
+      // Hong Kong or default
+      return r.maxFan <= 13 || r.id.includes('hongkong') || r.id.startsWith('preset-');
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -143,32 +179,81 @@ export default function NewGamePage() {
           ))}
         </div>
 
-        {/* Step 1: Select Variant */}
+        {/* Step 1: Select Variant & Rule */}
         {step === 1 && (
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-gray-800">選擇規則</h2>
-            <div className="space-y-2">
-              {variantOptions.map(v => (
+            
+            {/* Variant Selection */}
+            <div className="grid grid-cols-3 gap-2">
+              {Object.values(VARIANT_CONFIGS).map(v => (
                 <button
                   key={v.id}
-                  onClick={() => setVariant(v.id)}
-                  className={`w-full p-4 rounded-lg text-left border-2 transition ${
+                  onClick={() => {
+                    setVariant(v.id);
+                    setSelectedRuleId('');
+                  }}
+                  className={`p-3 rounded-lg text-center border-2 transition ${
                     variant === v.id ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
                   }`}
                 >
-                  <div className="font-bold">{v.name}</div>
-                  <div className="text-sm text-gray-500">{v.description}</div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    底分: {v.basePoints} · {v.scoringUnit}制
-                    {v.hasRiichi && ' · 立直'}
-                    {v.hasFlowers && ' · 花牌'}
-                  </div>
+                  <div className="font-bold text-sm">{v.name}</div>
                 </button>
               ))}
             </div>
+
+            {/* Rule Selection */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">選擇計分規則</label>
+                <Link href="/rules" className="text-xs text-blue-600">
+                  管理規則 →
+                </Link>
+              </div>
+              
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {getRulesForVariant(variant).map(rule => (
+                  <button
+                    key={rule.id}
+                    onClick={() => setSelectedRuleId(rule.id)}
+                    className={`w-full p-3 rounded-lg text-left border-2 transition ${
+                      selectedRuleId === rule.id ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-bold">{rule.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {rule.fullShoot ? '全銃' : '半銃'} · {rule.minFan}-{rule.maxFan}番
+                          {rule.jackpotEnabled && ' · Jackpot'}
+                        </div>
+                      </div>
+                      {rule.isPreset ? (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                          預設
+                        </span>
+                      ) : (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                          自訂
+                        </span>
+                      )}
+                    </div>
+                    {/* Preview points */}
+                    <div className="mt-2 text-xs text-gray-400">
+                      {rule.minFan}番={rule.fanPoints[rule.minFan]}分 | 
+                      {Math.floor((rule.minFan + rule.maxFan) / 2)}番=
+                      {rule.fanPoints[Math.floor((rule.minFan + rule.maxFan) / 2)] || '?'}分 | 
+                      自摸{rule.selfDrawMultiplier}x
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               onClick={() => setStep(2)}
-              className="w-full bg-red-600 text-white py-3 rounded-lg font-bold"
+              disabled={!validateStep1()}
+              className="w-full bg-red-600 text-white py-3 rounded-lg font-bold disabled:bg-gray-400"
             >
               下一步
             </button>
@@ -241,95 +326,56 @@ export default function NewGamePage() {
           </div>
         )}
 
-        {/* Step 3: Settings */}
-        {step === 3 && (
+        {/* Step 3: Summary */}
+        {step === 3 && selectedRule && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold text-gray-800">規則設定</h2>
+            <h2 className="text-lg font-bold text-gray-800">對局摘要</h2>
             
-            <div className="bg-white rounded-lg p-4 space-y-4">
+            <div className="bg-white rounded-lg shadow p-4 space-y-3">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">
-                  底分 (每{config.scoringUnit})
-                </label>
-                <input
-                  type="number"
-                  value={customSettings.basePoints}
-                  onChange={(e) => setCustomSettings({...customSettings, basePoints: parseInt(e.target.value) || 1})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
+                <span className="text-gray-500">規則:</span>
+                <span className="font-bold ml-2">{selectedRule.name}</span>
+                {selectedRule.isPreset ? (
+                  <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">預設</span>
+                ) : (
+                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">自訂</span>
+                )}
               </div>
-
+              
               <div>
-                <label className="block text-sm text-gray-600 mb-1">自摸倍數</label>
-                <input
-                  type="number"
-                  value={customSettings.selfDrawMultiplier}
-                  onChange={(e) => setCustomSettings({...customSettings, selfDrawMultiplier: parseInt(e.target.value) || 1})}
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
+                <span className="text-gray-500">名稱:</span>
+                <span className="ml-2">{gameName}</span>
               </div>
-
-              {variant === 'taiwan' && (
-                <>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">莊家加成 (台)</label>
-                    <input
-                      type="number"
-                      value={customSettings.dealerBonus}
-                      onChange={(e) => setCustomSettings({...customSettings, dealerBonus: parseInt(e.target.value) || 0})}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
+              
+              <div>
+                <span className="text-gray-500">玩家:</span>
+                <span className="ml-2">{players.map(p => p.name).join(', ')}</span>
+              </div>
+              
+              <div className="pt-3 border-t">
+                <h3 className="font-medium mb-2">規則詳情</h3>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <div>• {selectedRule.fullShoot ? '全銃' : '半銃'}</div>
+                  <div>• 番數範圍: {selectedRule.minFan}-{selectedRule.maxFan}番</div>
+                  <div>• 自摸倍數: {selectedRule.selfDrawMultiplier}x</div>
+                  {selectedRule.jackpotEnabled && <div>• 啟用 Jackpot</div>}
+                  {selectedRule.recordDealer && <div>• 記錄莊家</div>}
+                </div>
+              </div>
+              
+              <div className="pt-3 border-t">
+                <h3 className="font-medium mb-2">番數預覽</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="bg-gray-50 p-2 rounded">
+                    <span className="text-gray-500">{selectedRule.minFan}番:</span>
+                    <span className="font-bold ml-1">{selectedRule.fanPoints[selectedRule.minFan]}分</span>
                   </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">連莊加成 (每台)</label>
-                    <input
-                      type="number"
-                      value={customSettings.dealerRepeatBonus}
-                      onChange={(e) => setCustomSettings({...customSettings, dealerRepeatBonus: parseInt(e.target.value) || 0})}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
+                  <div className="bg-gray-50 p-2 rounded">
+                    <span className="text-gray-500">{selectedRule.maxFan}番:</span>
+                    <span className="font-bold ml-1">{selectedRule.fanPoints[selectedRule.maxFan]}分</span>
                   </div>
-                </>
-              )}
-
-              {variant === 'japanese' && (
-                <>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                    <span className="text-sm">使用符計算</span>
-                    <input
-                      type="checkbox"
-                      checked={customSettings.useFu}
-                      onChange={(e) => setCustomSettings({...customSettings, useFu: e.target.checked})}
-                      className="w-5 h-5"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                    <span className="text-sm">啟用立直</span>
-                    <input
-                      type="checkbox"
-                      checked={customSettings.enableRiichi}
-                      onChange={(e) => setCustomSettings({...customSettings, enableRiichi: e.target.checked})}
-                      className="w-5 h-5"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                    <span className="text-sm">啟用積棒子</span>
-                    <input
-                      type="checkbox"
-                      checked={customSettings.enableHonba}
-                      onChange={(e) => setCustomSettings({...customSettings, enableHonba: e.target.checked})}
-                      className="w-5 h-5"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h3 className="font-bold text-yellow-800 mb-2">對局摘要</h3>
-              <p className="text-sm text-yellow-700">規則: {config.name}</p>
-              <p className="text-sm text-yellow-700">名稱: {gameName}</p>
-              <p className="text-sm text-yellow-700">玩家: {players.map(p => p.name).join(', ')}</p>
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-2">

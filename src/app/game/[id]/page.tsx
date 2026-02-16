@@ -9,6 +9,11 @@ import {
   calculateScore,
   GameVariant 
 } from '@/lib/mahjongRules';
+import {
+  calculateCustomScore,
+  GameRule,
+  getRuleById
+} from '@/lib/customRules';
 
 interface Player {
   id: number;
@@ -52,6 +57,21 @@ export default function GamePage() {
   const config = VARIANT_CONFIGS[variant];
   const handTypes = HAND_TYPES_BY_VARIANT[variant];
   
+  // Check if using custom rule
+  const customRule: GameRule | null = game?.settings?.ruleId ? {
+    id: game.settings.ruleId,
+    name: game.settings.ruleName,
+    isPreset: game.settings.ruleId.startsWith('preset-'),
+    fullShoot: game.settings.fullShoot,
+    jackpotEnabled: game.settings.jackpotEnabled,
+    recordDealer: game.settings.recordDealer,
+    passDealerOnDraw: game.settings.passDealerOnDraw,
+    minFan: game.settings.minFan,
+    maxFan: game.settings.maxFan,
+    selfDrawMultiplier: game.settings.selfDrawMultiplier,
+    fanPoints: game.settings.fanPoints,
+  } : null;
+  
   // Form state
   const [winnerId, setWinnerId] = useState('');
   const [loserId, setLoserId] = useState('');
@@ -88,7 +108,7 @@ export default function GamePage() {
     return sum + (hand?.value || 0);
   }, 0);
 
-  // Calculate score using variant-specific logic
+  // Calculate score using variant-specific logic or custom rule
   function calculateFinalScore(): { 
     base: number; 
     final: number; 
@@ -98,13 +118,34 @@ export default function GamePage() {
     const currentDealer = players.find(p => p.is_dealer);
     const isDealer = winnerId === currentDealer?.id.toString();
     
+    // Use custom rule if available
+    if (customRule) {
+      const result = calculateCustomScore(
+        customRule,
+        totalValue,
+        isSelfDraw,
+        isDealer || false
+      );
+      
+      return {
+        base: totalValue,
+        final: result.winnerPoints,
+        breakdown: result.breakdown,
+        payments: {
+          winner: result.winnerPoints,
+          losers: result.loserPoints,
+        }
+      };
+    }
+    
+    // Otherwise use variant default
     const result = calculateScore(variant, {
       value: totalValue,
       fu: config.useFu ? fu : undefined,
       isSelfDraw,
       isDealer: isDealer || false,
       dealerRepeat: game?.dealer_repeat || 0,
-      honba: 0, // Simplified for now
+      honba: 0,
     }, config);
     
     return {
@@ -150,7 +191,10 @@ export default function GamePage() {
       base_tai: totalValue,
       fu: config.useFu ? fu : null,
       total_points: score.final,
-      notes: notes || ''
+      notes: notes || '',
+      // Include custom rule info if using
+      rule_id: customRule?.id,
+      rule_name: customRule?.name,
     };
     
     console.log('Submitting round data:', requestData);
