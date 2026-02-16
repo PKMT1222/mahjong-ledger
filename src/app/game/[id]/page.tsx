@@ -138,6 +138,7 @@ export default function GamePage() {
     breakdown: string;
     payments: { winner: number; losers: number };
     totalWinners: number;
+    selfDrawTotal?: number; // Total for bao self-draw
   } {
     const currentDealer = players.find(p => p.is_dealer);
     const isDealer = winnerIds.length === 1 && winnerIds[0] === currentDealer?.id.toString();
@@ -151,6 +152,10 @@ export default function GamePage() {
         isDealer || false
       );
       
+      // Calculate total for bao self-draw (per player payment * number of other players)
+      const otherPlayerCount = players.length - 1;
+      const selfDrawTotal = result.winnerPoints * otherPlayerCount;
+      
       return {
         base: totalValue,
         final: result.winnerPoints,
@@ -159,7 +164,8 @@ export default function GamePage() {
           winner: result.winnerPoints,
           losers: result.loserPoints,
         },
-        totalWinners: winnerIds.length
+        totalWinners: winnerIds.length,
+        selfDrawTotal
       };
     }
     
@@ -173,6 +179,10 @@ export default function GamePage() {
       honba: 0,
     }, config);
     
+    // Calculate total for bao self-draw
+    const otherPlayerCount = players.length - 1;
+    const selfDrawTotal = result.winnerPoints * otherPlayerCount;
+    
     return {
       base: totalValue,
       final: result.winnerPoints,
@@ -181,8 +191,15 @@ export default function GamePage() {
         winner: result.winnerPoints,
         losers: result.loserPoints,
       },
-      totalWinners: winnerIds.length
+      totalWinners: winnerIds.length,
+      selfDrawTotal
     };
+  }
+
+  // Helper function to get bao self-draw total
+  function getBaoSelfDrawTotal(): number {
+    const score = calculateFinalScore();
+    return score.selfDrawTotal || score.final * (players.length - 1);
   }
 
   async function recordRound(e: React.FormEvent) {
@@ -688,7 +705,10 @@ export default function GamePage() {
                         </div>
                         {baoPayerId && (
                           <p className="text-sm text-amber-700 mt-2">
-                            包家將支付全部 {calculateFinalScore().final * 3} 分
+                            包家將支付全部 {getBaoSelfDrawTotal()} 分
+                            <span className="text-xs text-gray-500 block">
+                              ({players.length - 1}人 × {calculateFinalScore().final}分)
+                            </span>
                           </p>
                         )}
                       </div>
@@ -866,7 +886,7 @@ export default function GamePage() {
                     className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold disabled:bg-gray-400 btn-ripple"
                     style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
-                    確認 {calculateFinalScore().final > 0 && `(${multipleWinnersMode ? winnerIds.length * calculateFinalScore().final : isBaoZimo ? calculateFinalScore().final * 3 : calculateFinalScore().final}分)`}
+                    確認 {calculateFinalScore().final > 0 && `(${multipleWinnersMode ? winnerIds.length * calculateFinalScore().final : isBaoZimo ? getBaoSelfDrawTotal() : calculateFinalScore().final}分)`}
                   </button>
                 </div>
               </form>
