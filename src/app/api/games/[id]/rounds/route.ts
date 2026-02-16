@@ -175,17 +175,18 @@ export async function POST(
       }
     } else if (is_self_draw) {
       if (is_bao_zimo && bao_payer_id) {
-        // Bao self-draw: selected payer pays full amount
+        // Bao self-draw: selected payer pays just the self-draw amount (×1.5), not ×3
+        // points is already the per-person amount with self-draw multiplier
+        const baoAmount = points; // Just ×1.5, not ×3
         const allPlayers = await pool.query(
           'SELECT player_id FROM game_players WHERE game_id = $1',
           [gameId]
         );
-        const totalPoints = points * (allPlayers.rows.length - 1);
         for (const p of allPlayers.rows) {
           if (winner_ids.includes(p.player_id)) {
-            scores[p.player_id] = totalPoints; // Winner gets full amount
+            scores[p.player_id] = baoAmount; // Winner gets ×1.5 amount
           } else if (p.player_id === bao_payer_id) {
-            scores[p.player_id] = -totalPoints; // Bao payer pays full amount
+            scores[p.player_id] = -baoAmount; // Bao payer pays ×1.5 amount
           } else {
             scores[p.player_id] = 0; // Others pay nothing
           }

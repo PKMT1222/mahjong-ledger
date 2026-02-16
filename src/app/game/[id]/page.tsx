@@ -145,37 +145,27 @@ export default function GamePage() {
     
     // Use custom rule if available
     if (customRule) {
-      // First calculate normal self-draw to get per-player payment
-      const normalResult = calculateCustomScore(
-        customRule,
-        totalValue,
-        false, // Calculate normal first to get base
-        isDealer || false
-      );
+      // Calculate base points
+      const basePoints = customRule.fanPoints[totalValue] || totalValue * 4;
       
-      // Then calculate self-draw
-      const selfDrawResult = calculateCustomScore(
-        customRule,
-        totalValue,
-        true,
-        isDealer || false
-      );
+      // Self-draw: base × selfDrawMultiplier (e.g., 8 × 1.5 = 12)
+      const selfDrawPoints = Math.round(basePoints * customRule.selfDrawMultiplier);
       
-      // For bao self-draw: the total is the same as normal self-draw total
-      // selfDrawResult.winnerPoints is already the total (per-player * 3 for 4-player game)
-      // For bao, the payer pays this total amount
-      const selfDrawTotal = selfDrawResult.winnerPoints;
+      // Bao self-draw: 包家 pays selfDrawPoints (番数×1.5), not ×3
+      // Normal self-draw total would be selfDrawPoints × 3
+      const baoSelfDrawTotal = selfDrawPoints; // Just the 1.5x amount
+      const normalSelfDrawTotal = selfDrawPoints * (players.length - 1); // ×3 for 4 players
       
       return {
         base: totalValue,
-        final: selfDrawResult.winnerPoints, // Total for display
-        breakdown: selfDrawResult.breakdown,
+        final: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
+        breakdown: `${totalValue}番 × ${customRule.selfDrawMultiplier} = ${selfDrawPoints}分${isBaoZimo ? ' (包自摸)' : ' × ' + (players.length - 1) + '人'}`,
         payments: {
-          winner: selfDrawResult.winnerPoints,
-          losers: selfDrawResult.loserPoints,
+          winner: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
+          losers: -selfDrawPoints,
         },
         totalWinners: winnerIds.length,
-        selfDrawTotal
+        selfDrawTotal: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal
       };
     }
     
@@ -183,33 +173,36 @@ export default function GamePage() {
     const result = calculateScore(variant, {
       value: totalValue,
       fu: config.useFu ? fu : undefined,
-      isSelfDraw,
+      isSelfDraw: true, // Always calculate as self-draw
       isDealer: isDealer || false,
       dealerRepeat: game?.dealer_repeat || 0,
       honba: 0,
     }, config);
     
-    // For bao self-draw: use the already calculated self-draw total
-    // result.winnerPoints is already the total (per-player * 3 for 4-player game)
-    const selfDrawTotal = result.winnerPoints;
+    // For bao self-draw: 包家 pays just the self-draw amount (×1.5), not ×3
+    // Normal self-draw: winner gets amount × 3 (from 3 players)
+    const perPersonAmount = result.winnerPoints; // This is the per-person payment (×1.5)
+    const normalSelfDrawTotal = perPersonAmount * (players.length - 1); // ×3 for 4 players
+    const baoSelfDrawTotal = perPersonAmount; // 包家只付 ×1.5 的金額
     
     return {
       base: totalValue,
-      final: result.winnerPoints,
-      breakdown: result.breakdown,
+      final: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
+      breakdown: `${totalValue}番 × ${config.selfDrawMultiplier} = ${perPersonAmount}分${isBaoZimo ? ' (包自摸)' : ' × ' + (players.length - 1) + '人 = ' + normalSelfDrawTotal + '分'}`,
       payments: {
-        winner: result.winnerPoints,
-        losers: result.loserPoints,
+        winner: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal,
+        losers: -perPersonAmount,
       },
       totalWinners: winnerIds.length,
-      selfDrawTotal
+      selfDrawTotal: isBaoZimo ? baoSelfDrawTotal : normalSelfDrawTotal
     };
   }
 
   // Helper function to get bao self-draw total
+  // 包自摸 = 番数 × 1.5 (不是 ×3)
   function getBaoSelfDrawTotal(): number {
     const score = calculateFinalScore();
-    return score.selfDrawTotal || score.final * (players.length - 1);
+    return score.selfDrawTotal || score.final;
   }
 
   async function recordRound(e: React.FormEvent) {
@@ -715,9 +708,9 @@ export default function GamePage() {
                         </div>
                         {baoPayerId && (
                           <p className="text-sm text-amber-700 mt-2">
-                            包家將支付全部 {getBaoSelfDrawTotal()} 分
+                            包家將支付 {getBaoSelfDrawTotal()} 分
                             <span className="text-xs text-gray-500 block">
-                              ({players.length - 1}人 × {Math.round(getBaoSelfDrawTotal() / (players.length - 1))}分/人)
+                              (番數 × {customRule?.selfDrawMultiplier || config.selfDrawMultiplier} = 包自摸金額)
                             </span>
                           </p>
                         )}
