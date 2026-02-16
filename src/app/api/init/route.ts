@@ -64,6 +64,8 @@ export async function POST() {
         winner_ids INTEGER[] DEFAULT '{}',
         loser_id INTEGER REFERENCES players(id),
         is_self_draw BOOLEAN DEFAULT FALSE,
+        is_draw BOOLEAN DEFAULT FALSE,
+        pass_dealer BOOLEAN DEFAULT FALSE,
         hand_type VARCHAR(100),
         base_tai INTEGER DEFAULT 0,
         dealer_repeat INTEGER DEFAULT 0,
@@ -80,6 +82,15 @@ export async function POST() {
       )
     `);
     console.log('✓ rounds table created');
+
+    // Add new columns if they don't exist (for existing databases)
+    try {
+      await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS is_draw BOOLEAN DEFAULT FALSE`);
+      await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS pass_dealer BOOLEAN DEFAULT FALSE`);
+      console.log('✓ Added new columns to rounds table');
+    } catch (e) {
+      console.log('Columns may already exist');
+    }
 
     // Hand details for multi-hand support
     await pool.query(`

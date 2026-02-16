@@ -67,6 +67,8 @@ export async function POST(
       winner_ids,
       loser_id,
       is_self_draw,
+      is_draw,
+      pass_dealer,
       hand_types,
       base_tai,
       total_points,
@@ -77,7 +79,8 @@ export async function POST(
     if (!dealer_id) {
       return NextResponse.json({ error: 'Missing dealer_id' }, { status: 400 });
     }
-    if (!winner_ids || !Array.isArray(winner_ids) || winner_ids.length === 0) {
+    // Allow empty winner_ids for draw rounds
+    if (!is_draw && (!winner_ids || !Array.isArray(winner_ids) || winner_ids.length === 0)) {
       return NextResponse.json({ error: 'Missing winner_ids' }, { status: 400 });
     }
     if (!id || isNaN(parseInt(id))) {
@@ -109,7 +112,16 @@ export async function POST(
     const scores: { [key: number]: number } = {};
     const points = total_points || (base_tai || 0);
     
-    if (is_self_draw) {
+    if (is_draw) {
+      // Draw round: no score change, all players get 0
+      const allPlayers = await pool.query(
+        'SELECT player_id FROM game_players WHERE game_id = $1',
+        [gameId]
+      );
+      for (const p of allPlayers.rows) {
+        scores[p.player_id] = 0;
+      }
+    } else if (is_self_draw) {
       // Self draw: everyone else pays
       const allPlayers = await pool.query(
         'SELECT player_id FROM game_players WHERE game_id = $1',
@@ -136,9 +148,9 @@ export async function POST(
     const roundResult = await pool.query(
       `INSERT INTO rounds (
         game_id, round_number, round_wind, hand_number, dealer_id, dealer_position,
-        winner_ids, loser_id, is_self_draw, hand_type, base_tai, total_points,
+        winner_ids, loser_id, is_self_draw, is_draw, pass_dealer, hand_type, base_tai, total_points,
         player_scores, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *`,
       [
         gameId,
@@ -147,12 +159,14 @@ export async function POST(
         handInRound + 1,
         dealer_id,
         dealerPosition,
-        winner_ids,
+        winner_ids || [],
         loser_id || null,
         is_self_draw || false,
-        hand_types?.map((h: any) => h.name).join(', ') || '',
+        is_draw || false,
+        pass_dealer || false,
+        is_draw ? '流局' : hand_types?.map((h: any) => h.name).join(', ') || '',
         base_tai || 0,
-        points,
+        is_draw ? 0 : points,
         JSON.stringify(scores),
         notes || ''
       ]
@@ -168,25 +182,27 @@ export async function POST(
       );
     }
     
-    // Update player stats
-    for (const wid of winner_ids) {
-      await pool.query(
-        'UPDATE game_players SET wins = wins + 1 WHERE game_id = $1 AND player_id = $2',
-        [gameId, wid]
-      );
-      if (is_self_draw) {
+    // Update player stats (skip for draw rounds)
+    if (!is_draw) {
+      for (const wid of winner_ids) {
         await pool.query(
-          'UPDATE game_players SET self_draws = self_draws + 1 WHERE game_id = $1 AND player_id = $2',
+          'UPDATE game_players SET wins = wins + 1 WHERE game_id = $1 AND player_id = $2',
           [gameId, wid]
         );
+        if (is_self_draw) {
+          await pool.query(
+            'UPDATE game_players SET self_draws = self_draws + 1 WHERE game_id = $1 AND player_id = $2',
+            [gameId, wid]
+          );
+        }
       }
-    }
-    
-    if (loser_id && !is_self_draw) {
-      await pool.query(
-        'UPDATE game_players SET deal_ins = deal_ins + 1 WHERE game_id = $1 AND player_id = $2',
-        [gameId, loser_id]
-      );
+      
+      if (loser_id && !is_self_draw) {
+        await pool.query(
+          'UPDATE game_players SET deal_ins = deal_ins + 1 WHERE game_id = $1 AND player_id = $2',
+          [gameId, loser_id]
+        );
+      }
     }
     
     // Update game round counter
@@ -206,6 +222,115 @@ export async function POST(
     return NextResponse.json({ 
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
+  }
+}
+
+// DELETE /api/games/[id]/rounds?id=xxx - Delete a specific round
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const roundId = searchParams.get('id');
+    
+    if (!roundId) {
+      return NextResponse.json({ error: 'Missing round ID' }, { status: 400 });
+    }
+    
+    const gameId = parseInt(id);
+    
+    // Start transaction
+    await pool.query('BEGIN');
+    
+    try {
+      // Get the round to delete
+      const roundResult = await pool.query(
+        'SELECT * FROM rounds WHERE id = $1 AND game_id = $2',
+        [roundId, gameId]
+      );
+      
+      if (roundResult.rows.length === 0) {
+        await pool.query('ROLLBACK');
+        return NextResponse.json({ error: 'Round not found' }, { status: 404 });
+      }
+      
+      const round = roundResult.rows[0];
+      
+      // Reverse player scores
+      const scores = round.player_scores || {};
+      for (const [pid, scoreChange] of Object.entries(scores)) {
+        await pool.query(
+          'UPDATE game_players SET final_score = final_score - $1 WHERE game_id = $2 AND player_id = $3',
+          [scoreChange, gameId, parseInt(pid)]
+        );
+      }
+      
+      // Reverse player stats (skip for draw rounds)
+      if (!round.is_draw) {
+        const winnerIds = round.winner_ids || [];
+        for (const wid of winnerIds) {
+          await pool.query(
+            'UPDATE game_players SET wins = GREATEST(0, wins - 1) WHERE game_id = $1 AND player_id = $2',
+            [gameId, wid]
+          );
+          if (round.is_self_draw) {
+            await pool.query(
+              'UPDATE game_players SET self_draws = GREATEST(0, self_draws - 1) WHERE game_id = $1 AND player_id = $2',
+              [gameId, wid]
+            );
+          }
+        }
+        
+        if (round.loser_id && !round.is_self_draw) {
+          await pool.query(
+            'UPDATE game_players SET deal_ins = GREATEST(0, deal_ins - 1) WHERE game_id = $1 AND player_id = $2',
+            [gameId, round.loser_id]
+          );
+        }
+      }
+      
+      // Delete the round
+      await pool.query('DELETE FROM rounds WHERE id = $1', [roundId]);
+      
+      // Renumber remaining rounds
+      await pool.query(`
+        WITH numbered AS (
+          SELECT id, ROW_NUMBER() OVER (ORDER BY created_at) as new_num
+          FROM rounds WHERE game_id = $1
+        )
+        UPDATE rounds r
+        SET round_number = n.new_num
+        FROM numbered n
+        WHERE r.id = n.id
+      `, [gameId]);
+      
+      // Update game round counter
+      const countResult = await pool.query(
+        'SELECT COUNT(*) as count FROM rounds WHERE game_id = $1',
+        [gameId]
+      );
+      const roundCount = parseInt(countResult.rows[0].count);
+      await pool.query(
+        'UPDATE games SET current_round = $1 WHERE id = $2',
+        [roundCount + 1, gameId]
+      );
+      
+      await pool.query('COMMIT');
+      
+      return NextResponse.json({ success: true });
+      
+    } catch (error) {
+      await pool.query('ROLLBACK');
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error('Error deleting round:', error);
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

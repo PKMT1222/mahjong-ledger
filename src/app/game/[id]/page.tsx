@@ -34,6 +34,8 @@ interface Round {
   winners: { id: number; name: string }[];
   loser_name: string;
   is_self_draw: boolean;
+  is_draw: boolean;
+  pass_dealer: boolean;
   hand_type: string;
   base_tai: number;
   total_points: number;
@@ -50,7 +52,11 @@ export default function GamePage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [showRecord, setShowRecord] = useState(false);
+  const [showDrawForm, setShowDrawForm] = useState(false);
+  const [drawPassDealer, setDrawPassDealer] = useState(true);
   const [activeTab, setActiveTab] = useState<'record' | 'history' | 'stats'>('record');
+  const [editingRound, setEditingRound] = useState<Round | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   
   // Get variant config
   const variant: GameVariant = game?.variant || 'hongkong';
@@ -73,9 +79,10 @@ export default function GamePage() {
   } : null;
   
   // Form state
-  const [winnerId, setWinnerId] = useState('');
+  const [winnerIds, setWinnerIds] = useState<string[]>([]);
   const [loserId, setLoserId] = useState('');
   const [isSelfDraw, setIsSelfDraw] = useState(false);
+  const [multipleWinnersMode, setMultipleWinnersMode] = useState(false);
   const [isBaoZimo, setIsBaoZimo] = useState(false);
   const [selectedHands, setSelectedHands] = useState<string[]>([]);
   const [fu, setFu] = useState(30); // For Japanese mahjong
@@ -102,11 +109,17 @@ export default function GamePage() {
     if (roundsRes.ok) setRounds(await roundsRes.json());
   }
 
-  // Calculate total value (tai/han)
-  const totalValue = selectedHands.reduce((sum, handName) => {
-    const hand = handTypes.find(h => h.name === handName);
-    return sum + (hand?.value || 0);
-  }, 0);
+  // Calculate total value (tai/han) - per winner
+  const calculateWinnerValue = (winnerId: string) => {
+    // For now, all winners get same value
+    // Could be extended to allow different hands per winner
+    return selectedHands.reduce((sum, handName) => {
+      const hand = handTypes.find(h => h.name === handName);
+      return sum + (hand?.value || 0);
+    }, 0);
+  };
+
+  const totalValue = calculateWinnerValue('');
 
   // Calculate score using variant-specific logic or custom rule
   function calculateFinalScore(): { 
@@ -114,9 +127,10 @@ export default function GamePage() {
     final: number; 
     breakdown: string;
     payments: { winner: number; losers: number };
+    totalWinners: number;
   } {
     const currentDealer = players.find(p => p.is_dealer);
-    const isDealer = winnerId === currentDealer?.id.toString();
+    const isDealer = winnerIds.length === 1 && winnerIds[0] === currentDealer?.id.toString();
     
     // Use custom rule if available
     if (customRule) {
@@ -134,7 +148,8 @@ export default function GamePage() {
         payments: {
           winner: result.winnerPoints,
           losers: result.loserPoints,
-        }
+        },
+        totalWinners: winnerIds.length
       };
     }
     
@@ -155,15 +170,17 @@ export default function GamePage() {
       payments: {
         winner: result.winnerPoints,
         losers: result.loserPoints,
-      }
+      },
+      totalWinners: winnerIds.length
     };
   }
 
   async function recordRound(e: React.FormEvent) {
     e.preventDefault();
-    if (!winnerId) { alert('請選擇食糊玩家'); return; }
+    if (winnerIds.length === 0) { alert('請選擇食糊玩家'); return; }
     if (!isSelfDraw && !loserId) { alert('請選擇出統玩家'); return; }
     if (config.useFu && (!fu || fu < 20)) { alert('請輸入有效符數 (20+)'); return; }
+    if (isSelfDraw && winnerIds.length > 1) { alert('自摸時只能有一位贏家'); return; }
     
     const score = calculateFinalScore();
     
@@ -180,7 +197,7 @@ export default function GamePage() {
     
     const requestData = {
       dealer_id: currentDealer.id,
-      winner_ids: [parseInt(winnerId)],
+      winner_ids: winnerIds.map(id => parseInt(id)),
       loser_id: isSelfDraw ? null : parseInt(loserId),
       is_self_draw: isSelfDraw,
       is_bao_zimo: isBaoZimo,
@@ -224,10 +241,11 @@ export default function GamePage() {
 
   function resetForm() {
     setShowRecord(false);
-    setWinnerId('');
+    setWinnerIds([]);
     setLoserId('');
     setIsSelfDraw(false);
     setIsBaoZimo(false);
+    setMultipleWinnersMode(false);
     setSelectedHands([]);
     setFu(30);
     setNotes('');
@@ -245,6 +263,82 @@ export default function GamePage() {
     if (!confirm('取消上一鋪?')) return;
     await fetch(`/api/games/${gameId}/undo`, { method: 'POST' });
     fetchGameData();
+  }
+
+  async function deleteRound(roundId: number) {
+    if (!confirm('確定要刪除此回合嗎？\n\n⚠️ 刪除後將重新計算所有後續回合的分數')) return;
+    
+    try {
+      const res = await fetch(`/api/games/${gameId}/rounds?id=${roundId}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchGameData();
+        alert('✅ 回合已刪除');
+      } else {
+        const error = await res.json();
+        alert('❌ 刪除失敗: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      alert('❌ 刪除失敗: ' + error.message);
+    }
+  }
+
+  function openEditModal(round: Round) {
+    setEditingRound(round);
+    // Initialize form with round data
+    if (!round.is_draw) {
+      setWinnerIds(round.winners?.map(w => w.id.toString()) || []);
+      setIsSelfDraw(round.is_self_draw);
+      setMultipleWinnersMode((round.winners?.length || 0) > 1);
+      if (round.loser_name) {
+        const loser = players.find(p => p.name === round.loser_name);
+        if (loser) setLoserId(loser.id.toString());
+      }
+      setNotes(round.hand_type || '');
+    }
+    setShowEditModal(true);
+  }
+
+  async function recordDraw(e: React.FormEvent) {
+    e.preventDefault();
+    
+    // Get current dealer
+    let currentDealer = players.find(p => p.is_dealer);
+    if (!currentDealer && players.length > 0) {
+      currentDealer = players[0];
+    }
+    
+    if (!currentDealer) {
+      alert('無法找到莊家信息');
+      return;
+    }
+    
+    const requestData = {
+      dealer_id: currentDealer.id,
+      is_draw: true,
+      pass_dealer: drawPassDealer,
+      notes: '流局',
+    };
+    
+    const res = await fetch(`/api/games/${gameId}/rounds`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestData)
+    });
+    
+    if (res.ok) {
+      setShowDrawForm(false);
+      fetchGameData();
+    } else {
+      let errorMessage = 'Unknown error';
+      try {
+        const errorData = await res.json();
+        errorMessage = errorData.error || errorData.message || JSON.stringify(errorData);
+      } catch (e) {
+        const text = await res.text();
+        errorMessage = text || `HTTP ${res.status}`;
+      }
+      alert('記錄流局失敗: ' + errorMessage);
+    }
   }
 
   // Filter hands by category
@@ -332,61 +426,131 @@ export default function GamePage() {
         {/* Record Tab */}
         {activeTab === 'record' && game.status === 'active' && (
           <div className="bg-white rounded-lg shadow p-4">
-            {!showRecord ? (
-              <button 
-                onClick={() => setShowRecord(true)}
-                className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg"
-              >
-                + 記錄新一鋪
-              </button>
+            {!showRecord && !showDrawForm ? (
+              <div className="space-y-3">
+                <button 
+                  onClick={() => setShowRecord(true)}
+                  className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg"
+                >
+                  + 記錄食糊
+                </button>
+                <button 
+                  onClick={() => setShowDrawForm(true)}
+                  className="w-full bg-gray-500 text-white py-3 rounded-lg font-medium"
+                >
+                  🌊 記錄流局
+                </button>
+              </div>
+            ) : showDrawForm ? (
+              <form onSubmit={recordDraw} className="space-y-4">
+                <h3 className="font-bold text-lg">記錄流局</h3>
+                
+                <label className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={drawPassDealer}
+                    onChange={(e) => setDrawPassDealer(e.target.checked)}
+                    className="w-5 h-5"
+                  />
+                  <div>
+                    <div className="font-medium">莊家過莊</div>
+                    <div className="text-xs text-gray-500">流局後輪轉到下一位莊家</div>
+                  </div>
+                </label>
+
+                <div className="flex gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowDrawForm(false)} 
+                    className="flex-1 py-3 bg-gray-200 rounded-lg"
+                  >
+                    取消
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="flex-1 py-3 bg-gray-600 text-white rounded-lg font-bold"
+                  >
+                    確認流局
+                  </button>
+                </div>
+              </form>
             ) : (
               <form onSubmit={recordRound} className="space-y-4">
                 {/* Win Type */}
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsSelfDraw(false)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium ${!isSelfDraw ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
+                    onClick={() => { setIsSelfDraw(false); setMultipleWinnersMode(false); }}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium ${!isSelfDraw && !multipleWinnersMode ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
                   >
-                    {variant === 'japanese' ? '榮和 (Ron)' : '食出統'}
+                    食出統
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIsSelfDraw(true)}
+                    onClick={() => { setIsSelfDraw(true); setMultipleWinnersMode(false); setWinnerIds([]); }}
                     className={`flex-1 py-2 rounded-lg text-sm font-medium ${isSelfDraw ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
                   >
-                    {variant === 'japanese' ? '自摸 (Tsumo)' : '自摸'}
+                    自摸
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMultipleWinnersMode(true); setIsSelfDraw(false); setWinnerIds([]); }}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium ${multipleWinnersMode ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
+                  >
+                    多贏家
                   </button>
                 </div>
 
                 {/* Winner Selection */}
                 <div>
                   <label className="text-sm text-gray-600 block mb-2">
-                    {variant === 'japanese' ? '和了者' : '食糊玩家'}
+                    {isSelfDraw ? '自摸玩家' : multipleWinnersMode ? '食糊玩家 (可多選)' : '食糊玩家'}
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {players.map(p => (
                       <button
                         key={p.id}
                         type="button"
-                        onClick={() => setWinnerId(p.id.toString())}
-                        className={`p-3 rounded-lg text-center ${winnerId === p.id.toString() ? 'bg-red-500 text-white' : 'bg-gray-100'}`}
+                        onClick={() => {
+                          if (isSelfDraw) {
+                            setWinnerIds([p.id.toString()]);
+                          } else if (multipleWinnersMode) {
+                            if (winnerIds.includes(p.id.toString())) {
+                              setWinnerIds(winnerIds.filter(id => id !== p.id.toString()));
+                            } else {
+                              setWinnerIds([...winnerIds, p.id.toString()]);
+                            }
+                          } else {
+                            setWinnerIds([p.id.toString()]);
+                          }
+                        }}
+                        className={`p-3 rounded-lg text-center ${
+                          winnerIds.includes(p.id.toString()) ? 'bg-red-500 text-white' : 'bg-gray-100'
+                        }`}
                       >
                         <div className="text-xs mb-1">{WINDS[p.seat_position - 1]}</div>
                         <div className="font-bold text-sm">{p.name.slice(0, 2)}</div>
+                        {multipleWinnersMode && winnerIds.includes(p.id.toString()) && (
+                          <div className="text-xs mt-1">✓</div>
+                        )}
                       </button>
                     ))}
                   </div>
+                  {multipleWinnersMode && winnerIds.length > 1 && (
+                    <p className="text-sm text-amber-600 mt-2">
+                      ⚠️ {winnerIds.length} 位贏家 - 出統者需付全部番數
+                    </p>
+                  )}
                 </div>
 
                 {/* Loser Selection */}
                 {!isSelfDraw && (
                   <div>
                     <label className="text-sm text-gray-600 block mb-2">
-                      {variant === 'japanese' ? '放銃者' : '出統玩家'}
+                      {multipleWinnersMode ? '出統玩家 (付全部)' : '出統玩家'}
                     </label>
                     <div className="grid grid-cols-4 gap-2">
-                      {players.filter(p => p.id.toString() !== winnerId).map(p => (
+                      {players.filter(p => !winnerIds.includes(p.id.toString())).map(p => (
                         <button
                           key={p.id}
                           type="button"
@@ -398,6 +562,11 @@ export default function GamePage() {
                         </button>
                       ))}
                     </div>
+                    {multipleWinnersMode && winnerIds.length > 1 && loserId && (
+                      <p className="text-sm text-red-600 mt-2">
+                        出統者將支付 {winnerIds.length * calculateFinalScore().final} 分
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -512,10 +681,10 @@ export default function GamePage() {
                   </button>
                   <button 
                     type="submit" 
-                    disabled={!winnerId || (!isSelfDraw && !loserId)}
+                    disabled={winnerIds.length === 0 || (!isSelfDraw && !loserId) || (multipleWinnersMode && winnerIds.length < 2)}
                     className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold disabled:bg-gray-400"
                   >
-                    確認 {calculateFinalScore().final > 0 && `(${calculateFinalScore().final}分)`}
+                    確認 {calculateFinalScore().final > 0 && `(${multipleWinnersMode ? winnerIds.length * calculateFinalScore().final : calculateFinalScore().final}分)`}
                   </button>
                 </div>
               </form>
@@ -529,20 +698,52 @@ export default function GamePage() {
             <h3 className="font-bold mb-3">牌局紀錄 ({rounds.length}鋪)</h3>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {[...rounds].reverse().map((round, idx) => (
-                <div key={round.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                <div key={round.id} className={`flex items-center justify-between p-2 rounded text-sm ${round.is_draw ? 'bg-blue-50' : 'bg-gray-50'}`}>
                   <div className="flex-1">
                     <span className="text-gray-400 mr-2">#{rounds.length - idx}</span>
-                    {round.winners?.map(w => (
-                      <span key={w.id} className="text-red-600 font-medium">{w.name}</span>
-                    ))}
-                    {!round.is_self_draw && round.loser_name && (
-                      <span className="text-gray-500"> ← {round.loser_name}</span>
+                    {round.is_draw ? (
+                      <span className="text-blue-600 font-medium">🌊 流局</span>
+                    ) : (
+                      <>
+                        {round.winners?.map((w, i) => (
+                          <span key={w.id}>
+                            <span className="text-red-600 font-medium">{w.name}</span>
+                            {i < (round.winners?.length || 0) - 1 && <span className="text-gray-400">, </span>}
+                          </span>
+                        ))}
+                        {!round.is_self_draw && round.loser_name && (
+                          <span className="text-gray-500"> ← {round.loser_name}</span>
+                        )}
+                        {round.is_self_draw && <span className="text-amber-600 ml-1">(自摸)</span>}
+                        {(round.winners?.length || 0) > 1 && <span className="text-purple-600 ml-1">(多贏)</span>}
+                      </>
                     )}
-                    {round.is_self_draw && <span className="text-amber-600 ml-1">(自摸)</span>}
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold">{round.total_points}分</div>
-                    <div className="text-xs text-gray-400">{round.base_tai}{config.scoringUnit}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <div className="font-bold">{round.total_points}分</div>
+                      {!round.is_draw && (
+                        <div className="text-xs text-gray-400">{round.base_tai}{config.scoringUnit}</div>
+                      )}
+                    </div>
+                    {game.status === 'active' && (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => openEditModal(round)}
+                          className="text-blue-500 hover:text-blue-700 text-xs px-1"
+                          title="編輯"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => deleteRound(round.id)}
+                          className="text-red-400 hover:text-red-600 text-xs px-1"
+                          title="刪除"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
