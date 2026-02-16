@@ -13,6 +13,7 @@ import {
   GameRule,
   calculateCustomScore
 } from '@/lib/customRules';
+import { FadeIn } from '@/components/AnimatedElements';
 
 const COLORS = [
   'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
@@ -186,19 +187,21 @@ export default function NewGamePage() {
             
             {/* Variant Selection */}
             <div className="grid grid-cols-3 gap-2">
-              {Object.values(VARIANT_CONFIGS).map(v => (
-                <button
-                  key={v.id}
-                  onClick={() => {
-                    setVariant(v.id);
-                    setSelectedRuleId('');
-                  }}
-                  className={`p-3 rounded-lg text-center border-2 transition ${
-                    variant === v.id ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
-                  }`}
-                >
-                  <div className="font-bold text-sm">{v.name}</div>
-                </button>
+              {Object.values(VARIANT_CONFIGS).map((v, i) => (
+                <FadeIn key={v.id} delay={i * 50}>
+                  <button
+                    onClick={() => {
+                      setVariant(v.id);
+                      setSelectedRuleId('');
+                    }}
+                    className={`w-full p-3 rounded-lg text-center border-2 transition btn-press ${
+                      variant === v.id ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
+                    }`}
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    <div className="font-bold text-sm">{v.name}</div>
+                  </button>
+                </FadeIn>
               ))}
             </div>
 
@@ -212,40 +215,42 @@ export default function NewGamePage() {
               </div>
               
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {getRulesForVariant(variant).map(rule => (
-                  <button
-                    key={rule.id}
-                    onClick={() => setSelectedRuleId(rule.id)}
-                    className={`w-full p-3 rounded-lg text-left border-2 transition ${
-                      selectedRuleId === rule.id ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-bold">{rule.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {rule.fullShoot ? '全銃' : '半銃'} · {rule.minFan}-{rule.maxFan}番
-                          {rule.jackpotEnabled && ' · Jackpot'}
+                {getRulesForVariant(variant).map((rule, i) => (
+                  <FadeIn key={rule.id} delay={i * 30}>
+                    <button
+                      onClick={() => setSelectedRuleId(rule.id)}
+                      className={`w-full p-3 rounded-lg text-left border-2 transition btn-press ${
+                        selectedRuleId === rule.id ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
+                      }`}
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-bold">{rule.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {rule.fullShoot ? '全銃' : '半銃'} · {rule.minFan}-{rule.maxFan}番
+                            {rule.jackpotEnabled && ' · Jackpot'}
+                          </div>
                         </div>
+                        {rule.isPreset ? (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                            預設
+                          </span>
+                        ) : (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                            自訂
+                          </span>
+                        )}
                       </div>
-                      {rule.isPreset ? (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                          預設
-                        </span>
-                      ) : (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                          自訂
-                        </span>
-                      )}
-                    </div>
-                    {/* Preview points */}
-                    <div className="mt-2 text-xs text-gray-400">
-                      {rule.minFan}番={rule.fanPoints[rule.minFan]}分 | 
-                      {Math.floor((rule.minFan + rule.maxFan) / 2)}番=
-                      {rule.fanPoints[Math.floor((rule.minFan + rule.maxFan) / 2)] || '?'}分 | 
-                      自摸{rule.selfDrawMultiplier}x
-                    </div>
-                  </button>
+                      {/* Preview points */}
+                      <div className="mt-2 text-xs text-gray-400">
+                        {rule.minFan}番={rule.fanPoints[rule.minFan]}分 | 
+                        {Math.floor((rule.minFan + rule.maxFan) / 2)}番=
+                        {rule.fanPoints[Math.floor((rule.minFan + rule.maxFan) / 2)] || '?'}分 | 
+                        自摸{rule.selfDrawMultiplier}x
+                      </div>
+                    </button>
+                  </FadeIn>
                 ))}
               </div>
             </div>
@@ -253,7 +258,8 @@ export default function NewGamePage() {
             <button
               onClick={() => setStep(2)}
               disabled={!validateStep1()}
-              className="w-full bg-red-600 text-white py-3 rounded-lg font-bold disabled:bg-gray-400"
+              className="w-full bg-red-600 text-white py-3 rounded-lg font-bold disabled:bg-gray-400 btn-ripple"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               下一步
             </button>
@@ -277,16 +283,18 @@ export default function NewGamePage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">4位玩家</label>
               <div className="space-y-2">
                 {players.map((player, i) => (
-                  <div key={i} className="flex items-center gap-2 p-3 bg-white rounded-lg">
-                    <div className={`w-8 h-8 rounded-full ${player.color}`}></div>
-                    <input
-                      type="text"
-                      value={player.name}
-                      onChange={(e) => updatePlayer(i, 'name', e.target.value)}
-                      placeholder={`玩家 ${i + 1}`}
-                      className="flex-1 px-2 py-1 border rounded"
-                    />
-                  </div>
+                  <FadeIn key={i} delay={i * 50}>
+                    <div className="flex items-center gap-2 p-3 bg-white rounded-lg card-press">
+                      <div className={`w-8 h-8 rounded-full ${player.color}`}></div>
+                      <input
+                        type="text"
+                        value={player.name}
+                        onChange={(e) => updatePlayer(i, 'name', e.target.value)}
+                        placeholder={`玩家 ${i + 1}`}
+                        className="flex-1 px-2 py-1 border rounded"
+                      />
+                    </div>
+                  </FadeIn>
                 ))}
               </div>
               
@@ -301,7 +309,8 @@ export default function NewGamePage() {
                           const emptyIndex = players.findIndex(pl => !pl.name);
                           if (emptyIndex !== -1) updatePlayer(emptyIndex, 'name', p.name);
                         }}
-                        className="px-3 py-1 bg-white rounded-full text-sm border"
+                        className="px-3 py-1 bg-white rounded-full text-sm border btn-press"
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
                       >
                         {p.name}
                       </button>
@@ -312,13 +321,18 @@ export default function NewGamePage() {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => setStep(1)} className="flex-1 bg-gray-200 py-3 rounded-lg">
+              <button 
+                onClick={() => setStep(1)} 
+                className="flex-1 bg-gray-200 py-3 rounded-lg btn-press"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
                 上一步
               </button>
               <button
                 onClick={() => setStep(3)}
                 disabled={!validateStep2()}
-                className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold disabled:bg-gray-400"
+                className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold disabled:bg-gray-400 btn-ripple"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 下一步
               </button>
@@ -379,10 +393,18 @@ export default function NewGamePage() {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => setStep(2)} className="flex-1 bg-gray-200 py-3 rounded-lg">
+              <button 
+                onClick={() => setStep(2)} 
+                className="flex-1 bg-gray-200 py-3 rounded-lg btn-press"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
                 上一步
               </button>
-              <button onClick={createGame} className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold">
+              <button 
+                onClick={createGame} 
+                className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold btn-ripple"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
                 開始對局
               </button>
             </div>

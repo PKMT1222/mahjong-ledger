@@ -14,6 +14,7 @@ import {
   GameRule,
   getRuleById
 } from '@/lib/customRules';
+import { AnimatedButton, AnimatedCard, IconButton, FadeIn } from '@/components/AnimatedElements';
 
 interface Player {
   id: number;
@@ -416,7 +417,10 @@ export default function GamePage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 py-3 text-sm font-medium ${activeTab === tab.id ? 'bg-red-600 text-white' : 'text-gray-600'}`}
+              className={`flex-1 py-3 text-sm font-medium tab-press transition-all duration-150 ${
+                activeTab === tab.id ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               {tab.label}
             </button>
@@ -430,13 +434,15 @@ export default function GamePage() {
               <div className="space-y-3">
                 <button 
                   onClick={() => setShowRecord(true)}
-                  className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg"
+                  className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg btn-ripple"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   + 記錄食糊
                 </button>
                 <button 
                   onClick={() => setShowDrawForm(true)}
-                  className="w-full bg-gray-500 text-white py-3 rounded-lg font-medium"
+                  className="w-full bg-gray-500 text-white py-3 rounded-lg font-medium btn-press"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   🌊 記錄流局
                 </button>
@@ -462,7 +468,8 @@ export default function GamePage() {
                   <button 
                     type="button" 
                     onClick={() => setShowDrawForm(false)} 
-                    className="flex-1 py-3 bg-gray-200 rounded-lg"
+                    className="flex-1 py-3 bg-gray-200 rounded-lg btn-press"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     取消
                   </button>
@@ -481,21 +488,24 @@ export default function GamePage() {
                   <button
                     type="button"
                     onClick={() => { setIsSelfDraw(false); setMultipleWinnersMode(false); }}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium ${!isSelfDraw && !multipleWinnersMode ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium btn-press ${!isSelfDraw && !multipleWinnersMode ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     食出統
                   </button>
                   <button
                     type="button"
                     onClick={() => { setIsSelfDraw(true); setMultipleWinnersMode(false); setWinnerIds([]); }}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium ${isSelfDraw ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium btn-press ${isSelfDraw ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     自摸
                   </button>
                   <button
                     type="button"
                     onClick={() => { setMultipleWinnersMode(true); setIsSelfDraw(false); setWinnerIds([]); }}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium ${multipleWinnersMode ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium btn-press ${multipleWinnersMode ? 'bg-red-600 text-white' : 'bg-gray-100'}`}
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     多贏家
                   </button>
