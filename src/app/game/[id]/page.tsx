@@ -146,26 +146,38 @@ export default function GamePage() {
     
     const score = calculateFinalScore();
     
-    // Get current dealer
-    const currentDealer = players.find(p => p.is_dealer);
+    // Get current dealer - fallback to first player if none found
+    let currentDealer = players.find(p => p.is_dealer);
+    if (!currentDealer && players.length > 0) {
+      currentDealer = players[0];
+    }
+    
+    if (!currentDealer) {
+      alert('無法找到莊家信息');
+      return;
+    }
+    
+    const requestData = {
+      dealer_id: currentDealer.id,
+      winner_ids: [parseInt(winnerId)],
+      loser_id: isSelfDraw ? null : parseInt(loserId),
+      is_self_draw: isSelfDraw,
+      is_bao_zimo: isBaoZimo,
+      hand_types: selectedHands.map(name => ({ 
+        name, 
+        tai: handTypes.find(h => h.name === name)?.fan || 0 
+      })),
+      base_tai: totalFan,
+      total_points: score.final,
+      notes: notes || ''
+    };
+    
+    console.log('Submitting round data:', requestData);
     
     const res = await fetch(`/api/games/${gameId}/rounds`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dealer_id: currentDealer?.id,
-        winner_ids: [parseInt(winnerId)],
-        loser_id: isSelfDraw ? null : parseInt(loserId),
-        is_self_draw: isSelfDraw,
-        is_bao_zimo: isBaoZimo,
-        hand_types: selectedHands.map(name => ({ 
-          name, 
-          tai: handTypes.find(h => h.name === name)?.fan || 0 
-        })),
-        base_tai: totalFan,
-        total_points: score.final,
-        notes
-      })
+      body: JSON.stringify(requestData)
     });
     
     if (res.ok) {

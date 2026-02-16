@@ -272,7 +272,19 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await request.json();
+    
+    // Parse request body with error handling
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return NextResponse.json({ 
+        error: 'Invalid JSON in request body',
+        details: parseError instanceof Error ? parseError.message : 'Unknown parse error'
+      }, { status: 400 });
+    }
+    
     console.log('POST /api/games/' + id + '/rounds - body:', JSON.stringify(body, null, 2));
     
     const {
