@@ -87,6 +87,8 @@ export async function POST() {
     try {
       await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS is_draw BOOLEAN DEFAULT FALSE`);
       await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS pass_dealer BOOLEAN DEFAULT FALSE`);
+      await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS is_bao_zimo BOOLEAN DEFAULT FALSE`);
+      await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS bao_payer_id INTEGER REFERENCES players(id)`);
       console.log('✓ Added new columns to rounds table');
     } catch (e) {
       console.log('Columns may already exist');

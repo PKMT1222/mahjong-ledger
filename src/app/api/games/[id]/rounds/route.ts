@@ -118,6 +118,8 @@ export async function POST(
       is_self_draw,
       is_draw,
       pass_dealer,
+      is_bao_zimo,
+      bao_payer_id,
       hand_types,
       base_tai,
       total_points,
@@ -171,16 +173,34 @@ export async function POST(
         scores[p.player_id] = 0;
       }
     } else if (is_self_draw) {
-      // Self draw: everyone else pays
-      const allPlayers = await pool.query(
-        'SELECT player_id FROM game_players WHERE game_id = $1',
-        [gameId]
-      );
-      for (const p of allPlayers.rows) {
-        if (winner_ids.includes(p.player_id)) {
-          scores[p.player_id] = points * (allPlayers.rows.length - 1);
-        } else {
-          scores[p.player_id] = -points;
+      if (is_bao_zimo && bao_payer_id) {
+        // Bao self-draw: selected payer pays full amount
+        const allPlayers = await pool.query(
+          'SELECT player_id FROM game_players WHERE game_id = $1',
+          [gameId]
+        );
+        const totalPoints = points * (allPlayers.rows.length - 1);
+        for (const p of allPlayers.rows) {
+          if (winner_ids.includes(p.player_id)) {
+            scores[p.player_id] = totalPoints; // Winner gets full amount
+          } else if (p.player_id === bao_payer_id) {
+            scores[p.player_id] = -totalPoints; // Bao payer pays full amount
+          } else {
+            scores[p.player_id] = 0; // Others pay nothing
+          }
+        }
+      } else {
+        // Normal self draw: everyone else pays
+        const allPlayers = await pool.query(
+          'SELECT player_id FROM game_players WHERE game_id = $1',
+          [gameId]
+        );
+        for (const p of allPlayers.rows) {
+          if (winner_ids.includes(p.player_id)) {
+            scores[p.player_id] = points * (allPlayers.rows.length - 1);
+          } else {
+            scores[p.player_id] = -points;
+          }
         }
       }
     } else {
@@ -193,21 +213,21 @@ export async function POST(
       }
     }
     
-    // Check if new columns exist
-    const columnsExist = await pool.query(`
+    // Check if bao_payer_id column exists
+    const baoColumnCheck = await pool.query(`
       SELECT column_name 
       FROM information_schema.columns 
-      WHERE table_name = 'rounds' AND column_name IN ('is_draw', 'pass_dealer')
+      WHERE table_name = 'rounds' AND column_name = 'bao_payer_id'
     `);
-    const hasNewColumns = columnsExist.rows.length >= 2;
+    const hasBaoColumn = baoColumnCheck.rows.length > 0;
     
-    // Insert round - use appropriate query based on column existence
+    // Insert round
     let roundResult;
-    if (hasNewColumns) {
+    if (hasBaoColumn) {
       roundResult = await pool.query(
         `INSERT INTO rounds (
           game_id, round_number, round_wind, hand_number, dealer_id, dealer_position,
-          winner_ids, loser_id, is_self_draw, is_draw, pass_dealer, hand_type, base_tai, total_points,
+          winner_ids, loser_id, is_self_draw, is_bao_zimo, bao_payer_id, hand_type, base_tai, total_points,
           player_scores, notes
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING *`,
@@ -221,8 +241,8 @@ export async function POST(
           winner_ids || [],
           loser_id || null,
           is_self_draw || false,
-          is_draw || false,
-          pass_dealer || false,
+          is_bao_zimo || false,
+          bao_payer_id || null,
           is_draw ? '流局' : hand_types?.map((h: any) => h.name).join(', ') || '',
           base_tai || 0,
           is_draw ? 0 : points,
@@ -231,7 +251,7 @@ export async function POST(
         ]
       );
     } else {
-      // Fallback for old schema without new columns
+      // Fallback for old schema
       roundResult = await pool.query(
         `INSERT INTO rounds (
           game_id, round_number, round_wind, hand_number, dealer_id, dealer_position,

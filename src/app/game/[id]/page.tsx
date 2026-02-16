@@ -85,6 +85,7 @@ export default function GamePage() {
   const [isSelfDraw, setIsSelfDraw] = useState(false);
   const [multipleWinnersMode, setMultipleWinnersMode] = useState(false);
   const [isBaoZimo, setIsBaoZimo] = useState(false);
+  const [baoPayerId, setBaoPayerId] = useState('');
   const [selectedHands, setSelectedHands] = useState<string[]>([]);
   const [fu, setFu] = useState(30); // For Japanese mahjong
   const [notes, setNotes] = useState('');
@@ -182,6 +183,7 @@ export default function GamePage() {
     if (!isSelfDraw && !loserId) { alert('請選擇出統玩家'); return; }
     if (config.useFu && (!fu || fu < 20)) { alert('請輸入有效符數 (20+)'); return; }
     if (isSelfDraw && winnerIds.length > 1) { alert('自摸時只能有一位贏家'); return; }
+    if (isBaoZimo && !baoPayerId) { alert('請選擇包家'); return; }
     
     const score = calculateFinalScore();
     
@@ -202,9 +204,10 @@ export default function GamePage() {
       loser_id: isSelfDraw ? null : parseInt(loserId),
       is_self_draw: isSelfDraw,
       is_bao_zimo: isBaoZimo,
-      hand_types: selectedHands.map(name => ({ 
-        name, 
-        tai: handTypes.find(h => h.name === name)?.value || 0 
+      bao_payer_id: isBaoZimo && baoPayerId ? parseInt(baoPayerId) : null,
+      hand_types: selectedHands.map(name => ({
+        name,
+        tai: handTypes.find(h => h.name === name)?.value || 0
       })),
       base_tai: totalValue,
       fu: config.useFu ? fu : null,
@@ -246,6 +249,7 @@ export default function GamePage() {
     setLoserId('');
     setIsSelfDraw(false);
     setIsBaoZimo(false);
+    setBaoPayerId('');
     setMultipleWinnersMode(false);
     setSelectedHands([]);
     setFu(30);
@@ -606,15 +610,52 @@ export default function GamePage() {
 
                 {/* Bao Zimo for HK */}
                 {variant === 'hongkong' && isSelfDraw && (
-                  <label className="flex items-center gap-2 p-3 bg-yellow-50 rounded-lg cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={isBaoZimo}
-                      onChange={(e) => setIsBaoZimo(e.target.checked)}
-                      className="w-5 h-5"
-                    />
-                    <span className="text-sm">包自摸 (出統者全付)</span>
-                  </label>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 p-3 bg-yellow-50 rounded-lg cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isBaoZimo}
+                        onChange={(e) => {
+                          setIsBaoZimo(e.target.checked);
+                          if (!e.target.checked) setBaoPayerId('');
+                        }}
+                        className="w-5 h-5"
+                      />
+                      <span className="text-sm">包自摸 (出統者全付)</span>
+                    </label>
+
+                    {/* Bao Payer Selection */}
+                    {isBaoZimo && (
+                      <div className="p-3 bg-amber-50 rounded-lg">
+                        <label className="text-sm text-gray-600 block mb-2">
+                          選擇包家 (必選) <span className="text-red-500">*</span>
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {players.filter(p => !winnerIds.includes(p.id.toString())).map(p => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setBaoPayerId(p.id.toString())}
+                              className={`p-2 rounded-lg text-center text-sm btn-press ${
+                                baoPayerId === p.id.toString()
+                                  ? 'bg-red-500 text-white'
+                                  : 'bg-white border border-gray-200'
+                              }`}
+                              style={{ WebkitTapHighlightColor: 'transparent' }}
+                            >
+                              <div className="text-xs mb-1">{WINDS[p.seat_position - 1]}</div>
+                              <div className="font-medium">{p.name.slice(0, 2)}</div>
+                            </button>
+                          ))}
+                        </div>
+                        {baoPayerId && (
+                          <p className="text-sm text-amber-700 mt-2">
+                            包家將支付全部 {calculateFinalScore().final * 3} 分
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Hand Types */}
@@ -686,15 +727,21 @@ export default function GamePage() {
                 />
 
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setShowRecord(false)} className="flex-1 py-3 bg-gray-200 rounded-lg">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowRecord(false)} 
+                    className="flex-1 py-3 bg-gray-200 rounded-lg btn-press"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
                     取消
                   </button>
                   <button 
                     type="submit" 
-                    disabled={winnerIds.length === 0 || (!isSelfDraw && !loserId) || (multipleWinnersMode && winnerIds.length < 2)}
-                    className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold disabled:bg-gray-400"
+                    disabled={winnerIds.length === 0 || (!isSelfDraw && !loserId) || (multipleWinnersMode && winnerIds.length < 2) || (isBaoZimo && !baoPayerId)}
+                    className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold disabled:bg-gray-400 btn-ripple"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
-                    確認 {calculateFinalScore().final > 0 && `(${multipleWinnersMode ? winnerIds.length * calculateFinalScore().final : calculateFinalScore().final}分)`}
+                    確認 {calculateFinalScore().final > 0 && `(${multipleWinnersMode ? winnerIds.length * calculateFinalScore().final : isBaoZimo ? calculateFinalScore().final * 3 : calculateFinalScore().final}分)`}
                   </button>
                 </div>
               </form>
