@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>香港麻雀 Pro - Flagship Edition</title>
+<title>香港麻雀 Master - Pro Flagship</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -12,19 +12,19 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
 body { background-color: #f7f3e9; font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
+/* 實體 3D 麻雀牌樣式 */
 .mahjong-tile { display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 4px; line-height: 1; box-shadow: 0 2px 0 #ddd, 0 3px 0 #ccc, 0 4px 6px rgba(0,0,0,0.1); aspect-ratio: 3/4; color: #333; font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif; transition: all 0.1s; }
 .mahjong-tile:active { transform: translateY(2px); box-shadow: 0 1px 0 #ccc; }
-.tile-wan { color: #d32f2f; }
-.tile-tong { color: #1976d2; }
-.tile-sok { color: #388e3c; }
-.score-card, .stats-card { background: #fff; border-radius: 2.5rem; padding: 1.5rem; position: relative; cursor: pointer; transition: all 0.2s; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.03), 0 8px 10px -6px rgba(0, 0, 0, 0.03); }
-.score-card:active { transform: scale(0.95); }
-.banker-tag { position: absolute; top: 15px; right: 25px; color: #ef4444; font-weight: 900; font-size: 14px; }
-.tag-pattern { background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 800; padding: 2px 10px; border-radius: 99px; border: 1px solid #fde68a; margin-right: 4px; margin-bottom: 4px; }
+.t-wan { color: #d32f2f; }
+.t-tong { color: #1976d2; }
+.t-sok { color: #388e3c; }
+/* 分數卡 (無黑邊) */
+.score-card { background: #fff; border-radius: 2.2rem; padding: 1.5rem; position: relative; cursor: pointer; transition: all 0.2s; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.04); }
+.score-card:active { transform: scale(0.96); }
+.banker-tag { position: absolute; top: 12px; right: 20px; color: #ef4444; font-weight: 900; font-size: 14px; }
+.tag-pattern { background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 800; padding: 2px 10px; border-radius: 99px; border: 1px solid #fde68a; margin-right: 4px; }
 input[type=range] { accent-color: #10b981; }
-.switch { width: 44px; height: 24px; border-radius: 12px; position: relative; transition: 0.3s; cursor: pointer; }
-.switch-dot { width: 18px; height: 18px; background: white; border-radius: 50%; position: absolute; top: 3px; transition: 0.3s; }
-.modal-enter { animation: slideUp 0.3s ease-out; }
+.modal-up { animation: slideUp 0.3s ease-out; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 </style>
@@ -38,124 +38,97 @@ const TILES_LIB = {
   '筒': [1,2,3,4,5,6,7,8,9].map(v => ({icon:['🀙','🀚','🀛','🀜','🀝','🀞','🀟','🀠','🀡'][v-1], class:'tile-tong', suit:'p', val:v})),
   '索': [1,2,3,4,5,6,7,8,9].map(v => ({icon:['🀐','🀑','🀒','🀓','🀔','🀕','🀖','🀗','🀘'][v-1], class:'tile-sok', suit:'s', val:v})),
   '字': [
-    {icon:'🀀', class:'', suit:'z', val:1, name:'東'},
-    {icon:'🀁', class:'', suit:'z', val:2, name:'南'},
-    {icon:'🀂', class:'', suit:'z', val:3, name:'西'},
-    {icon:'🀃', class:'', suit:'z', val:4, name:'北'},
-    {icon:'🀆', class:'', suit:'z', val:5, name:'白'},
-    {icon:'🀅', class:'text-green-600', suit:'z', val:6, name:'發'},
-    {icon:'🀄\uFE0E', class:'text-red-600', suit:'z', val:7, name:'中'}
+    {icon:'🀀', suit:'z', val:1},
+    {icon:'🀁', suit:'z', val:2},
+    {icon:'🀂', suit:'z', val:3},
+    {icon:'🀃', suit:'z', val:4},
+    {icon:'🀆', suit:'z', val:5},
+    {icon:'🀅', class:'text-green-600', suit:'z', val:6},
+    {icon:'🀄\uFE0E', class:'text-red-600', suit:'z', val:7}
   ]
 };
-
 const analyzeHand = (hand, isZimo) => {
   if (hand.length < 14) return [];
-  const patterns = [];
+  const res = [];
   const counts = {};
-  hand.forEach(t => { const k = t.suit + t.val; counts[k] = (counts[k] || 0) + 1; });
-  const suits = [...new Set(hand.map(t => t.suit))];
-  const values = Object.values(counts);
-  const isZiOnly = suits.length === 1 && suits[0] === 'z';
-  
-  // 十三幺
-  const yao13Keys = ['m1','m9','p1','p9','s1','s9','z1','z2','z3','z4','z5','z6','z7'];
-  if (yao13Keys.every(k => counts[k] >= 1)) return ["十三幺"];
-  
-  // 九子連環
-  ['m','p','s'].forEach(s => {
-    const sHand = hand.filter(t => t.suit === s);
-    if (sHand.length === 14) {
-      const hasAll = [1,2,3,4,5,6,7,8,9].every(v => counts[s+v] >= 1);
-      if (hasAll && counts[s+1] >= 3 && counts[s+9] >= 3) patterns.push("九子連環");
-    }
-  });
-  
-  if (isZiOnly) patterns.push("字一色");
-  if (suits.length === 1 && !isZiOnly) patterns.push("清一色");
-  if (suits.length === 2 && suits.includes('z')) patterns.push("混一色");
-  
-  // 對對糊 / 坎坎胡
-  const triples = values.filter(v => v >= 3).length;
-  const pairs = values.filter(v => v === 2).length;
-  if (triples === 4 && pairs === 1) {
-    isZimo ? patterns.push("坎坎胡") : patterns.push("對對糊");
-  }
-  
-  // 幺九
-  const allTiles = Object.keys(counts);
-  const isYaoJiu = allTiles.every(k => k.includes('1') || k.includes('9') || k.startsWith('z'));
-  if (isYaoJiu && !isZiOnly) patterns.push(allTiles.every(k => !k.startsWith('z')) ? "清幺九" : "幺九糊");
-  
-  const dragT = ['z5', 'z6', 'z7'].filter(k => (counts[k] || 0) >= 3).length;
-  if (dragT === 3) patterns.push("大三元");
-  else if (dragT === 2 && ['z5', 'z6', 'z7'].some(k => (counts[k] || 0) === 2)) patterns.push("小三元");
-  
-  return patterns;
+  const sCounts = { m:0, p:0, s:0, z:0 };
+  hand.forEach(t => { const k = t.suit+t.val; counts[k]=(counts[k]||0)+1; sCounts[t.suit]++; });
+  const vals = Object.values(counts);
+  const yao13 = ['m1','m9','p1','p9','s1','s9','z1','z2','z3','z4','z5','z6','z7'];
+  if (yao13.every(k => counts[k] >= 1)) return ["十三幺"];
+  if (['z5','z6','z7'].every(k => counts[k] >= 3)) res.push("大三元");
+  if (['z1','z2','z3','z4'].every(k => counts[k] >= 3)) res.push("大四喜");
+  if (Object.keys(sCounts).filter(k => sCounts[k] > 0).length === 1 && sCounts.z === 0) res.push("清一色");
+  if (vals.filter(v => v >= 3).length === 4) res.push(isZimo ? "坎坎胡" : "對對糊");
+  const allK = Object.keys(counts);
+  if (allK.every(k => k.includes('1') || k.includes('9') || k.startsWith('z')) && sCounts.z < 14) res.push("幺九糊");
+  return res;
 };
-
-const Icon = ({ name, size = 20, className="" }) => { useEffect(() => { lucide.createIcons(); }, []); return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>; };
-
+const Icon = ({ name, size = 20 }) => { useEffect(() => { lucide.createIcons(); }, []); return <i data-lucide={name} style={{ width: size, height: size }}></i>; };
 function App() {
   const [tab, setTab] = useState('home');
-  const getStored = (k, f) => JSON.parse(localStorage.getItem(k)) || f;
-  const [playerPool, setPlayerPool] = useState(() => getStored('mj_p_v3', [{id:1, name:'Ruby', avatar:'🐱'},{id:2, name:'Franky', avatar:'🐨'},{id:3, name:'Dale', avatar:'🦁'},{id:4, name:'Candy', avatar:'🐼'},{id:5, name:'玩家 5', avatar:'🐰'}]));
-  const [seats, setSeats] = useState(() => getStored('mj_s_v3', [1, 2, 3, 4]));
-  const [bankerIdx, setBankerIdx] = useState(() => getStored('mj_b_v3', 0));
-  const [history, setHistory] = useState(() => getStored('mj_h_v3', []));
-  const [rules, setRules] = useState(() => getStored('mj_r_v3', { payType:'half', minFan:3, maxFan:10, unitScores:{3:4,4:8,5:12,6:16,7:24,8:32,9:48,10:64} }));
-
-  useEffect(() => {
-    localStorage.setItem('mj_p_v3', JSON.stringify(playerPool));
-    localStorage.setItem('mj_s_v3', JSON.stringify(seats));
-    localStorage.setItem('mj_b_v3', JSON.stringify(bankerIdx));
-    localStorage.setItem('mj_h_v3', JSON.stringify(history));
-    localStorage.setItem('mj_r_v3', JSON.stringify(rules));
-  }, [playerPool, seats, bankerIdx, history, rules]);
-
-  const [modals, setModals] = useState({ entry: false, edit: null, swap: false, settle: false });
-  const [newRound, setNewRound] = useState({ winner: 0, loser: 1, isZimo: false, isBao: false, fan: 3, hand: [] });
-
+  const [playerPool, setPlayerPool] = useState(() => JSON.parse(localStorage.getItem('mj_pool')) || [{id:1,name:'Ruby'},{id:2,name:'Franky'},{id:3,name:'Dale'},{id:4,name:'Candy'}]);
+  const [seats, setSeats] = useState([1, 2, 3, 4]);
+  const [bankerIdx, setBankerIdx] = useState(0);
+  const [history, setHistory] = useState([]);
+  const [rules, setRules] = useState({ payType:'half', minFan:3, maxFan:10, unitScores:{3:4,4:8,5:12,6:16,7:24,8:32,9:48,10:64} });
+  useEffect(() => { localStorage.setItem('mj_pool', JSON.stringify(playerPool)); }, [playerPool]);
   const scores = useMemo(() => {
     let s = {};
     playerPool.forEach(p => s[p.id] = 0);
     history.forEach(h => {
-      const unit = rules.unitScores[h.fan] || 0;
+      const base = (rules.unitScores || {})[h.fan] || 0;
+      const zimo = Math.floor(base * 3);
+      const per = base;
       if (h.isZimo) {
-        const total = unit * 3;
-        if (h.isBao) { s[h.winId] += total; s[h.losId] -= total; }
-        else { s[h.winId] += total; h.othIds.forEach(id => s[id] -= unit); }
+        if (h.isBao) { s[h.winId] += zimo; s[h.losId] -= zimo; }
+        else { s[h.winId] += zimo; h.othIds.forEach(id => s[id] -= per); }
       } else {
-        const shooterPay = unit * 2;
+        const shooterPay = base * 2;
         if (rules.payType === 'full') { s[h.winId] += shooterPay; s[h.losId] -= shooterPay; }
-        else { s[h.winId] += shooterPay + (unit * 2); s[h.losId] -= shooterPay; h.othIds.forEach(id => s[id] -= unit); }
+        else { s[h.winId] += shooterPay + per * 2; s[h.losId] -= shooterPay; h.othIds.forEach(id => s[id] -= per); }
       }
     });
     return s;
-  }, [history, rules, playerPool]);
-
-  const settlements = useMemo(() => { let debt = []; let cred = []; Object.entries(scores).forEach(([id, sc]) => { const p = playerPool.find(x=>x.id==id); if (sc < 0) debt.push({ n: p.name, amt: Math.abs(sc) }); else if (sc > 0) cred.push({ n: p.name, amt: sc }); }); let tx = []; let di = 0, ci = 0; while (di < debt.length && ci < cred.length) { let a = Math.min(debt[di].amt, cred[ci].amt); tx.push({ from: debt[di].n, to: cred[ci].n, amt: a }); debt[di].amt -= a; cred[ci].amt -= a; if (debt[di].amt === 0) di++; if (cred[ci].amt === 0) ci++; } return tx; }, [scores, playerPool]);
-
+  }, [history, playerPool, rules]);
+  const [modals, setModals] = useState({ entry: false, edit: null, swap: false, settle: false });
+  const [newRound, setNewRound] = useState({ winner: 0, loser: 1, isZimo: false, isBao: false, fan: 3, hand: [] });
+  const handPatterns = useMemo(() => analyzeHand(newRound.hand, newRound.isZimo), [newRound.hand, newRound.isZimo]);
   const handleSave = () => {
     const winId = seats[newRound.winner];
     const losId = seats[newRound.loser];
     const othIds = seats.filter(id => id !== winId && (newRound.isZimo || id !== losId));
-    setHistory([{ ...newRound, id: Date.now(), winId, losId, othIds, p: analyzeHand(newRound.hand, newRound.isZimo) }, ...history]);
-    setModals({ ...modals, entry: false });
+    setHistory([{ ...newRound, id: Date.now(), winId, losId, othIds, p: handPatterns }, ...history]);
+    setModals({...modals, entry: false});
     if (newRound.winner !== bankerIdx) setBankerIdx((bankerIdx + 1) % 4);
     setNewRound({ winner: 0, loser: 1, isZimo: false, isBao: false, fan: rules.minFan, hand: [] });
   };
-
+  const settlements = useMemo(() => {
+    let debt = []; let cred = [];
+    Object.entries(scores).forEach(([id, sc]) => {
+      const p = playerPool.find(x=>x.id==id);
+      if (sc < 0) debt.push({ n: p.name, a: Math.abs(sc) });
+      else if (sc > 0) cred.push({ n: p.name, a: sc });
+    });
+    let tx = []; let di = 0, ci = 0;
+    while (di < debt.length && ci < cred.length) {
+      let amt = Math.min(debt[di].a, cred[ci].a);
+      tx.push({ from: debt[di].n, to: cred[ci].n, amt });
+      debt[di].a -= amt; cred[ci].a -= amt;
+      if (debt[di].a === 0) di++; if (cred[ci].a === 0) ci++;
+    }
+    return tx;
+  }, [scores]);
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col bg-[#fdfdfb] shadow-xl relative pb-24">
       <header className="p-4 flex justify-between items-center bg-white border-b sticky top-0 z-40">
         <div className="flex gap-4">
-          <button onClick={() => setModals({...modals, settle: true})} className="text-emerald-600 flex flex-col items-center"><Icon name="banknote" size={20}/><span className="text-[8px] font-bold">Settle</span></button>
-          <button onClick={() => setModals({...modals, swap: true})} className="text-blue-500 flex flex-col items-center"><Icon name="users" size={20}/><span className="text-[8px] font-bold">Swap</span></button>
+          <button onClick={() => setModals({...modals, settle: true})} className="text-emerald-600 flex flex-col items-center"><Icon name="banknote" size={20}/><span className="text-[8px] font-bold">找數</span></button>
+          <button onClick={() => setModals({...modals, swap: true})} className="text-blue-500 flex flex-col items-center"><Icon name="users" size={20}/><span className="text-[8px] font-bold uppercase">Swap</span></button>
         </div>
-        <h1 className="font-black italic text-xl text-emerald-800 tracking-tighter">MAHJONG Master</h1>
+        <h1 className="font-black italic text-xl text-emerald-800 tracking-tighter uppercase">Mahjong Master</h1>
         <button onClick={() => setHistory(history.slice(1))} className="text-orange-500 flex flex-col items-center"><Icon name="rotate-ccw" size={20}/><span className="text-[8px] font-bold uppercase">Undo</span></button>
       </header>
-
       <main className="flex-1 overflow-y-auto p-4 space-y-8">
         {tab === 'home' ? (
           <div className="space-y-8 animate-in fade-in">
@@ -171,99 +144,54 @@ function App() {
                 );
               })}
             </div>
-            <button onClick={() => setModals({...modals, entry: true})} className="w-full bg-emerald-500 text-white py-5 rounded-[2.5rem] font-black text-2xl shadow-lg active:scale-95 transition-all">記錄新一局</button>
-            <div className="space-y-3">
-              {history.map(h => (
-                <div key={h.id} className="bg-white p-4 rounded-[2rem] border border-gray-50 shadow-sm">
-                  <div className="flex justify-between items-center mb-2 font-bold text-sm">
-                    <span>{playerPool.find(x=>x.id===h.winId)?.name} {h.isZimo?'自摸':'食'} {!h.isZimo && playerPool.find(x=>x.id===h.losId)?.name} {h.isBao && '(包)'}</span>
-                    <div className="flex gap-1">
-                      {h.p.map(x=><span key={x} className="tag-pattern">{x}</span>)}
-                      <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px]">{h.fan} 番</span>
-                    </div>
+            <button onClick={() => setModals({...modals, entry: true})} className="w-full bg-emerald-500 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-lg active:scale-95 transition-all">記錄新一局</button>
+          </div>
+        ) : tab === 'history' ? (
+          <div className="space-y-4 animate-in fade-in">
+            {history.map(h => (
+              <div key={h.id} className="bg-white p-4 rounded-[2rem] border border-gray-50 shadow-sm flex flex-col gap-2">
+                <div className="flex justify-between items-center font-bold text-sm">
+                  <span>{playerPool.find(x=>x.id===h.winId)?.name} {h.isZimo?'自摸':'食'} {h.isBao && '包'}</span>
+                  <div className="flex gap-1 items-center">
+                    {h.p?.map(x=><span key={x} className="tag-pattern">{x}</span>)}
+                    <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-bold">{h.fan} 番</span>
                   </div>
-                  <div className="flex flex-wrap gap-1 opacity-80 scale-95 origin-left">{h.hand.map((t, i) => <span key={i} className={`mahjong-tile text-2xl w-8 h-10 ${t.class}`}>{t.icon}</span>)}</div>
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-1 opacity-80 scale-95 origin-left">{h.hand.map((t, i) => <span key={i} className={`mahjong-tile text-2xl w-8 h-10 ${t.class}`}>{t.icon}</span>)}</div>
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="p-6 space-y-6">
-            <h3 className="text-xs font-black text-emerald-800 uppercase italic">Settings</h3>
-            <div className="flex gap-2 p-1 bg-gray-50 rounded-2xl">
-              {['full','half'].map(t=>(<button key={t} onClick={()=>setRules({...rules, payType:t})} className={`flex-1 py-3 rounded-xl font-bold text-sm ${rules.payType===t?'bg-white shadow text-emerald-600':'text-gray-400'}`}>{t==='full'?'全銃':'半銃'}</button>))}
-            </div>
-            <input type="range" min="0" max="13" value={rules.minFan} onChange={e=>setRules({...rules, minFan:parseInt(e.target.value)})} className="w-full h-2 bg-gray-100" />
-            <div className="divide-y">
-              {Array.from({length: rules.maxFan-rules.minFan+1}).map((_,i)=>{
-                const f = rules.minFan+i;
-                return (<div key={f} className="grid grid-cols-3 py-3 items-center text-center"><span>{f}番</span><input type="number" value={rules.unitScores[f]||0} onChange={e=>setRules({...rules, unitScores:{...rules.unitScores,[f]:parseInt(e.target.value)}})} className="bg-transparent text-center font-black text-emerald-600 outline-none w-16 mx-auto" /><span>摸 {Math.floor((rules.unitScores[f]||0)*3)}</span></div>)
-              })}
-            </div>
+          <div className="p-6 space-y-6 animate-in slide-in-from-right pb-10">
+            <section className="bg-white rounded-[2.5rem] border p-6 shadow-sm space-y-6">
+              <h3 className="text-xs font-black text-emerald-800 uppercase italic">Rules Setting</h3>
+              <div className="flex gap-2 p-1 bg-gray-50 rounded-2xl">
+                {['full','half'].map(t=>(<button key={t} onClick={()=>setRules({...rules, payType:t})} className={`flex-1 py-3 rounded-xl font-bold text-sm ${rules.payType===t?'bg-white shadow text-emerald-600':'text-gray-400'}`}>{t==='full'?'全銃':'半銃'}</button>))}
+              </div>
+              <div className="flex justify-between text-xs font-black text-emerald-600 uppercase"><span>{rules.minFan}番起糊</span><span>{rules.maxFan}番滿糊</span></div>
+              <input type="range" min="0" max="13" value={rules.minFan} onChange={e=>setRules({...rules, minFan:parseInt(e.target.value)})} className="w-full h-2 bg-gray-100" />
+              <input type="range" min="0" max="13" value={rules.maxFan} onChange={e=>setRules({...rules, maxFan:Math.max(rules.minFan, parseInt(e.target.value))})} className="w-full h-2 bg-emerald-100" />
+              <div className="divide-y divide-gray-50 overflow-y-auto max-h-80 pr-2 scrollbar-hide">
+                {Array.from({length: rules.maxFan-rules.minFan+1}).map((_,i)=>{
+                  const f = rules.minFan+i;
+                  return (<div key={f} className="grid grid-cols-3 py-3 items-center text-center"><span className="font-bold text-gray-300">{f}番</span><input type="number" value={rules.unitScores[f]||0} onChange={e => setRules({...rules, unitScores: {...rules.unitScores, [f]: parseInt(e.target.value)||0}})} className="bg-transparent text-center font-black text-emerald-600 outline-none w-16 mx-auto" /><span>摸 {Math.floor((rules.unitScores[f]||0)*3)}</span></div>)
+                })}
+              </div>
+            </section>
+            <button onClick={()=>setTab('home')} className="w-full bg-emerald-500 text-white py-5 rounded-[2rem] font-bold shadow-xl">確定保存</button>
           </div>
         )}
       </main>
-
-      <nav className="fixed bottom-0 max-w-md w-full bg-white border-t flex justify-around py-4 z-40 rounded-t-[2.5rem] shadow-inner">
+      <nav className="fixed bottom-0 max-w-md w-full bg-white/95 backdrop-blur-md border-t flex justify-around py-4 z-40 rounded-t-[2.5rem] shadow-inner">
         <button onClick={() => setTab('home')} className={tab==='home'?'text-emerald-600':'text-gray-300'}><Icon name="home" size={24}/></button>
+        <button onClick={() => setTab('history')} className={tab==='history'?'text-emerald-600':'text-gray-300'}><Icon name="layout-dashboard" size={24}/></button>
         <button onClick={() => setTab('set')} className={tab==='set'?'text-emerald-600':'text-gray-300'}><Icon name="sliders" size={24}/></button>
       </nav>
-
       {/* Modals */}
-      {modals.settle && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full rounded-[3rem] p-10 shadow-2xl max-h-[80vh] overflow-y-auto text-center">
-            <h2 className="text-2xl font-black mb-8 uppercase italic text-emerald-700 underline underline-offset-8">Settlement</h2>
-            <div className="space-y-6 mb-10 text-left">
-              {settlements.map((tx, i) => (
-                <div key={i} className="flex justify-between items-center p-5 bg-emerald-50 rounded-2xl border border-emerald-100 shadow-sm">
-                  <span className="font-bold text-emerald-900">{tx.from}</span>
-                  <div className="flex flex-col items-center"><Icon name="arrow-right" className="text-emerald-300" size={14}/><span className="text-lg font-black text-emerald-600">${tx.amt}</span></div>
-                  <span className="font-bold text-emerald-900">{tx.to}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => setModals({...modals, settle: false})} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-bold shadow-lg">關閉</button>
-          </div>
-        </div>
-      )}
-
-      {modals.swap && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full rounded-[3rem] p-8 shadow-2xl">
-            <h2 className="text-xl font-black text-center mb-6 uppercase italic text-emerald-800">Swap Seats</h2>
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              {seats.map((pid, idx) => (
-                <div key={idx} className="flex flex-col gap-2 p-4 bg-gray-50 rounded-2xl border shadow-inner">
-                  <span className="text-[10px] font-black text-emerald-500 uppercase italic">Seat {idx+1}</span>
-                  <select className="font-bold bg-white p-2 rounded-xl outline-none" value={pid} onChange={(e) => { const n = [...seats]; n[idx] = parseInt(e.target.value); setSeats(n); }}>
-                    {playerPool.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                  </select>
-                </div>
-              ))}
-            </div>
-            <button onClick={()=>setModals({...modals, swap: false})} className="w-full bg-emerald-500 text-white py-4 rounded-3xl font-bold shadow-md">完成更換</button>
-          </div>
-        </div>
-      )}
-
-      {modals.edit && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 animate-in fade-in">
-          <div className="bg-white w-full rounded-[3.5rem] p-10 shadow-2xl text-center">
-            <h2 className="text-xl font-black mb-6 uppercase italic text-emerald-800 text-center">Rename Player</h2>
-            <input className="w-full p-6 bg-gray-100 rounded-3xl font-black text-2xl outline-none mb-8 focus:ring-4 ring-emerald-50 shadow-inner" value={modals.edit.name} onChange={(e) => { const n = e.target.value; setPlayerPool(playerPool.map(p => p.id === modals.edit.id ? {...p, name: n} : p)); setModals({...modals, edit: {...modals.edit, name: n}}); }} />
-            <button onClick={()=>setModals({...modals, edit: null})} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-bold shadow-lg active:scale-95 transition-all">確定</button>
-          </div>
-        </div>
-      )}
-
       {modals.entry && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end animate-in fade-in">
-          <div className="bg-white w-full rounded-t-[3.5rem] p-8 max-h-[96vh] overflow-y-auto modal-enter">
-            <div className="flex justify-between items-center mb-8 italic font-black text-xl text-emerald-900 uppercase">
-              <span>ENTRY</span>
-              <button onClick={()=>setModals({...modals, entry:false})}><Icon name="x-circle" size={32}/></button>
-            </div>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
+          <div className="bg-white w-full rounded-t-[3.5rem] p-8 max-h-[96vh] overflow-y-auto modal-up">
+            <div className="flex justify-between items-center mb-8 italic font-black text-xl text-emerald-900 uppercase"><span>ENTRY</span><button onClick={()=>setModals({...modals, entry:false})}><Icon name="x-circle" size={32}/></button></div>
             <div className="space-y-8 pb-10">
               <div className="grid grid-cols-4 gap-2">{seats.map((id, idx) => (<button key={idx} onClick={()=>setNewRound({...newRound, winner:idx})} className={`py-4 rounded-3xl font-bold ${newRound.winner===idx?'bg-emerald-500 text-white shadow-lg':'bg-gray-100'}`}>{playerPool.find(x=>x.id===id)?.name}</button>))}</div>
               <div className="flex gap-4">
@@ -271,47 +199,40 @@ function App() {
                 <button onClick={()=>setNewRound({...newRound, isBao: !newRound.isBao})} className={`px-8 py-4 rounded-3xl font-bold border-2 ${newRound.isBao?'border-red-500 text-red-600 bg-red-50 shadow-sm':'border-gray-100'}`}>包</button>
               </div>
               {(!newRound.isZimo || newRound.isBao) && (
-                <div className="bg-gray-50 p-5 rounded-[2.5rem] border border-gray-100 shadow-inner italic uppercase text-xs font-black text-gray-400">
-                  <span>出銃者 (Shooter)</span>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {seats.map((id, idx) => idx !== newRound.winner && (
-                      <button key={idx} onClick={()=>setNewRound({...newRound, loser:idx})} className={`py-4 rounded-2xl font-black ${newRound.loser===idx ? 'bg-red-500 text-white' : 'bg-white text-gray-300'}`}>{playerPool.find(p=>p.id===id)?.name}</button>
-                    ))}
-                  </div>
+                <div className="bg-gray-50 p-5 rounded-[2.5rem] border border-gray-100 shadow-inner italic">
+                  <label className="text-[10px] font-black text-gray-400 uppercase block mb-3 px-2 underline">出銃者 (Shooter)</label>
+                  <div className="grid grid-cols-2 gap-2">{seats.map((id, idx) => idx !== newRound.winner && (<button key={idx} onClick={()=>setNewRound({...newRound, loser:idx})} className={`py-4 rounded-2xl font-black transition-all ${newRound.loser===idx ? 'bg-red-500 text-white shadow-md' : 'bg-white text-gray-300'}`}>{playerPool.find(p=>p.id===id)?.name}</button>))}</div>
                 </div>
               )}
               <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-[10px] font-black text-gray-300 uppercase">Hand ({newRound.hand.length}/14)</span>
-                  <div className="flex gap-1">{analyzeHand(newRound.hand, newRound.isZimo).map(x=><span key={x} className="tag-pattern">{x}</span>)}</div>
+                <div className="flex justify-between items-center mb-3"><span className="text-[10px] font-black text-gray-300 uppercase">Hand ({newRound.hand.length}/14)</span><div className="flex gap-1">{handPatterns.map(x=><span key={x} className="tag-pattern">{x}</span>)}</div></div>
+                <div className="grid grid-cols-7 gap-1 bg-gray-50 p-4 rounded-[2.5rem] mb-6 shadow-inner border">
+                  {[...Array(14)].map((_, i) => (<div key={i} onClick={()=>setNewRound({...newRound, hand: newRound.hand.filter((_, idx)=>idx!==i)})} className="aspect-[3/4] border border-dashed border-gray-200 rounded-lg bg-white flex items-center justify-center cursor-pointer">{newRound.hand[i] && <span className={`text-2xl ${newRound.hand[i].class}`}>{newRound.hand[i].icon}</span>}</div>))}
                 </div>
-                <div className="grid grid-cols-7 gap-1 bg-gray-50 p-4 rounded-[2.5rem] mb-6 shadow-inner">
-                  {[...Array(14)].map((_, i) => (
-                    <div key={i} onClick={()=>setNewRound({...newRound, hand: newRound.hand.filter((_, idx)=>idx!==i)})} className="aspect-[3/4] border-none shadow-sm rounded-lg bg-white flex items-center justify-center cursor-pointer transition-all active:scale-95">
-                      {newRound.hand[i] && <span className={`text-2xl ${newRound.hand[i].class}`}>{newRound.hand[i].icon}</span>}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2.5 max-h-48 overflow-y-auto scrollbar-hide">
-                  {Object.values(TILES_LIB).flat().map((t, idx) => (
-                    <button key={idx} onClick={()=>{if(newRound.hand.length<14) setNewRound({...newRound, hand: [...newRound.hand, t]})}} className={`mahjong-tile text-3xl w-[44px] h-[58px] ${t.class}`}>{t.icon}</button>
-                  ))}
+                <div className="flex flex-wrap gap-2.5 max-h-48 overflow-y-auto scrollbar-hide p-1">
+                  {Object.values(TILES_LIB).flat().map((t, idx) => (<button key={idx} onClick={()=>{if(newRound.hand.length<14) setNewRound({...newRound, hand: [...newRound.hand, t]})}} className={`mahjong-tile text-3xl w-[44px] h-[58px] ${t.class}`}>{t.icon}</button>))}
                 </div>
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
-                {Object.keys(rules.unitScores).map(f => (
-                  <button key={f} onClick={()=>setNewRound({...newRound, fan: parseInt(f)})} className={`px-6 py-2 rounded-full font-black border shrink-0 transition-all ${newRound.fan===parseInt(f)?'bg-emerald-600 text-white border-emerald-600 shadow-xl':'bg-gray-100'}`}>{f}番</button>
-                ))}
-              </div>
+              <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">{Object.keys(rules.unitScores).map(f => (<button key={f} onClick={()=>setNewRound({...newRound, fan: parseInt(f)})} className={`px-6 py-2 rounded-full font-black border shrink-0 transition-all ${newRound.fan===parseInt(f)?'bg-emerald-600 text-white border-emerald-600 shadow-xl':'bg-gray-100'}`}>{f}番</button>))}</div>
               <button onClick={handleSave} className="w-full bg-emerald-800 text-white py-7 rounded-[2.5rem] font-black text-2xl shadow-2xl active:scale-95 transition-all">確認提交</button>
             </div>
           </div>
         </div>
       )}
+      {modals.settle && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full rounded-[3rem] p-10 shadow-2xl max-h-[80vh] overflow-y-auto text-center"><h2 className="text-2xl font-black mb-8 uppercase italic text-emerald-700 underline underline-offset-8">Settlement</h2><div className="space-y-6 mb-10 text-left">{settlements.map((tx, i) => (<div key={i} className="flex justify-between items-center p-5 bg-emerald-50 rounded-2xl border border-emerald-100 shadow-sm"><span className="font-bold text-emerald-900">{tx.from}</span><div className="flex flex-col items-center"><Icon name="arrow-right" className="text-emerald-300" size={14}/><span className="text-lg font-black text-emerald-600">${tx.amt}</span></div><span className="font-bold text-emerald-900">{tx.to}</span></div>))}</div><button onClick={() => setModals({...modals, settle: false})} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-bold">關閉</button></div>
+        </div>
+      )}
+      {modals.edit && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 animate-in fade-in"><div className="bg-white w-full rounded-[3.5rem] p-10 shadow-2xl text-center"><h2 className="text-xl font-black mb-6 uppercase italic text-emerald-800">Rename</h2><input className="w-full p-6 bg-gray-100 rounded-3xl font-black text-2xl outline-none mb-8 focus:ring-4 ring-emerald-50 shadow-inner" value={modals.edit.name} onChange={(e) => { const n = e.target.value; setPlayerPool(playerPool.map(p => p.id === modals.edit.id ? {...p, name: n} : p)); setModals({...modals, edit: {...modals.edit, name: n}}); }} /><button onClick={()=>setModals({...modals, edit: null})} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-bold">確定</button></div></div>
+      )}
+      {modals.swap && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in"><div className="bg-white w-full rounded-[3rem] p-8 shadow-2xl card-shadow"><h2 className="text-xl font-black text-center mb-6 uppercase italic text-emerald-800">Swap Seats</h2><div className="grid grid-cols-2 gap-4 mb-8">{seats.map((pid, idx) => (<div key={idx} className="flex flex-col gap-2 p-4 bg-gray-50 rounded-2xl border shadow-inner"><span className="text-[10px] font-black text-emerald-500 uppercase italic">Seat {idx+1}</span><select className="font-bold bg-white p-2 rounded-xl outline-none" value={pid} onChange={(e) => { const newS = [...seats]; newS[idx] = parseInt(e.target.value); setSeats(newS); }}>{playerPool.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}</select></div>))}</div><button onClick={()=>setModals({...modals, swap: false})} className="w-full bg-emerald-500 text-white py-4 rounded-3xl font-bold shadow-md">完成更換</button></div></div>
+      )}
     </div>
   );
 }
-
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
