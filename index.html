@@ -3,14 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>廣東麻雀 Master - 旗艦正式版</title>
+<title>香港麻雀 Master - 旗艦版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
 body { background-color: #f7f3e9; font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
@@ -23,6 +21,7 @@ body { background-color: #f7f3e9; font-family: 'Noto Sans TC', sans-serif; -webk
 .banker-tag { position: absolute; top: 12px; right: 20px; color: #ef4444; font-weight: 900; font-size: 14px; }
 .modal-up { animation: slideUp 0.3s ease-out; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+input[type=range] { accent-color: #10b981; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 </style>
 </head>
@@ -30,17 +29,6 @@ body { background-color: #f7f3e9; font-family: 'Noto Sans TC', sans-serif; -webk
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useMemo } = React;
-const firebaseConfig = {
-  apiKey: "AIzaSyBwRI1gCi3d-DcX0tRhjpknBZHIYRxvAQg",
-  authDomain: "mahjongmaster-b9b62.firebaseapp.com",
-  projectId: "mahjongmaster-b9b62",
-  storageBucket: "mahjongmaster-b9b62.firebasestorage.app",
-  messagingSenderId: "982936187849",
-  appId: "1:982936187849:web:6c68d22b07e31c85962e18",
-  databaseURL: "https://mahjongmaster-b9b62-default-rtdb.firebaseio.com"
-};
-if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
 const TILES_LIB = {
   '萬': ['🀇','🀈','🀉','🀊','🀋','🀌','🀍','🀎','🀏'].map((t,i)=>({icon:t, class:'t-wan', type:'wan', val:i+1})),
   '筒': ['🀙','🀚','🀛','🀜','🀝','🀞','🀟','🀠','🀡'].map((t,i)=>({icon:t, class:'t-tong', type:'tong', val:i+1})),
@@ -58,23 +46,148 @@ const analyzeHand = (hand) => {
   if (['zi-B','zi-F','zi-C'].filter(d => counts[d] >= 3).length === 3) res.push("大三元");
   if (['zi-E','zi-S','zi-W','zi-N'].filter(w => counts[w] >= 3).length === 4) res.push("大四喜");
   if (Object.keys(sCounts).filter(s => sCounts[s] > 0).length === 1 && sCounts.zi === 0) res.push("清一色");
-  if (Object.values(counts).filter(v => v >= 3).length === 4) res.push("對對糊");
+  const triples = Object.values(counts).filter(v => v >= 3).length;
+  const pairs = Object.values(counts).filter(v => v === 2).length;
+  if (triples === 4 && pairs === 1) res.push("對對糊");
   return res;
 };
 const Icon = ({ name, size = 20 }) => { useEffect(() => { lucide.createIcons(); }, []); return <i data-lucide={name} style={{ width: size, height: size }}></i>; };
 function App() {
-  const [roomId, setRoomId] = useState("");
-  const [isJoined, setIsJoined] = useState(false);
   const [tab, setTab] = useState('home');
-  const [data, setData] = useState({ history: [], playerPool: [{id:1,name:'Ruby'},{id:2,name:'玩家 2'},{id:3,name:'玩家 3'},{id:4,name:'玩家 4'}], seats: [1,2,3,4], bankerIdx: 0, rules: { minFan:3, maxFan:10, scores: {3:8,4:16,5:24,6:32,7:48,8:64,9:96,10:128} } });
-  useEffect(() => { if (isJoined && roomId) { const roomRef = db.ref('rooms/' + roomId); roomRef.on('value', (s) => { if (s.val()) setData(s.val()); }); return () => roomRef.off(); } }, [isJoined, roomId]);
-  const broadcast = (newData) => { const updated = { ...data, ...newData }; setData(updated); db.ref('rooms/' + roomId).set(updated); };
-  const scores = useMemo(() => { let s = {}; (data.playerPool || []).forEach(p => s[p.id] = 0); (data.history || []).forEach(h => { const base = (data.rules.scores || {})[h.fan] || 0; const zimo = Math.floor(base * 1.5); const per = Math.floor(zimo / 3); if (h.isZimo) { if (h.isBao) { s[h.winId] += zimo; s[h.losId] -= zimo; } else { s[h.winId] += zimo; h.othIds.forEach(id => s[id] -= per); } } else { const winTotal = base + (per * 2); s[h.winId] += winTotal; s[h.losId] -= base; h.othIds.forEach(id => s[id] -= per); } }); return s; }, [data]);
+  const [playerPool, setPlayerPool] = useState([ {id:1, name:'Ruby'},{id:2, name:'Franky'},{id:3, name:'Dale'},{id:4, name:'Candy'},{id:5, name:'玩家 5'},{id:6, name:'玩家 6'} ]);
+  const [seats, setSeats] = useState([1, 2, 3, 4]);
+  const [bankerIdx, setBankerIdx] = useState(0);
+  const [history, setHistory] = useState([]);
+  const [rules, setRules] = useState({ payType: 'half', progression: 'double', minFan: 3, maxFan: 10, scores: {3:8, 4:16, 5:24, 6:32, 7:48, 8:64, 9:96, 10:128} });
+  const scores = useMemo(() => {
+    let s = {};
+    playerPool.forEach(p => s[p.id] = 0);
+    history.forEach(h => {
+      const base = (rules.scores || {})[h.fan] || 0;
+      const zimo = Math.floor(base * 1.5);
+      const per = Math.floor(zimo/3);
+      if (h.isZimo) {
+        if (h.isBao) { s[h.winId] += zimo; s[h.losId] -= zimo; }
+        else { s[h.winId] += zimo; h.othIds.forEach(id => s[id] -= per); }
+      } else {
+        if (rules.payType === 'full') { s[h.winId] += zimo; s[h.losId] -= zimo; }
+        else { const winRon = base + (per * 2); s[h.winId] += winRon; s[h.losId] -= base; h.othIds.forEach(id => s[id] -= per); }
+      }
+    });
+    return s;
+  }, [history, playerPool, rules]);
   const [modals, setModals] = useState({ entry: false, edit: null, swap: false, settle: false });
   const [newRound, setNewRound] = useState({ winner: 0, loser: 1, isZimo: false, isBao: false, fan: 3, hand: [] });
   const handPatterns = useMemo(() => analyzeHand(newRound.hand), [newRound.hand]);
-  if (!isJoined) return ( <div className="min-h-screen bg-[#064e3b] flex items-center justify-center p-8"> <div className="bg-white w-full max-w-sm rounded-[3rem] p-10 shadow-2xl text-center"> <h1 className="text-2xl font-black italic text-emerald-800 mb-8 uppercase tracking-tighter">Mahjong Master</h1> <input className="w-full p-5 bg-gray-50 rounded-2xl mb-6 text-center font-black text-xl border-2 border-emerald-50 outline-none" placeholder="ROOM ID" id="ridInput" /> <button onClick={() => {const id = document.getElementById('ridInput').value; if(id){setRoomId(id); setIsJoined(true);}}} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-black text-lg">進入房間</button> </div> </div> );
-  return ( <div className="max-w-md mx-auto min-h-screen flex flex-col bg-[#fdfdfb] shadow-xl relative pb-24"> <header className="p-4 flex justify-between items-center bg-white border-b sticky top-0 z-40"> <div className="flex gap-4"> <button onClick={() => setModals({...modals, settle: true})} className="text-emerald-600 flex flex-col items-center"><Icon name="banknote" size={20}/><span className="text-[8px] font-bold">找數</span></button> <button onClick={() => setModals({...modals, swap: true})} className="text-blue-500 flex flex-col items-center"><Icon name="users" size={20}/><span className="text-[8px] font-bold">Swap</span></button> </div> <h1 className="font-black italic text-xl text-emerald-800 tracking-tighter">MAHJONG PRO</h1> <button onClick={() => broadcast({ history: (data.history || []).slice(1) })} className="text-orange-500 flex flex-col items-center"><Icon name="rotate-ccw" size={20}/><span className="text-[8px] font-bold">Undo</span></button> </header> <main className="flex-1 overflow-y-auto p-4 space-y-8"> {tab === 'home' ? ( <div className="space-y-8"> <div className="grid grid-cols-2 gap-4"> {data.seats.map((pid, idx) => { const p = data.playerPool.find(x => x.id === pid); const s = scores[pid]; return ( <div key={idx} className="score-card" onClick={() => setModals({...modals, edit: p})}> {data.bankerIdx === idx && <div className="banker-tag">莊</div>} <div className="text-emerald-600 font-bold text-xs mb-2 truncate">{p?.name}</div> <div className={`text-4xl font-black ${s >= 0 ? 'text-orange-500' : 'text-emerald-900'}`}>{s > 0 ? `+${s}` : s}</div> </div> ); })} </div> <button onClick={() => setModals({...modals, entry: true})} className="w-full bg-emerald-500 text-white py-5 rounded-[2.5rem] font-black text-2xl shadow-lg">記錄新一局</button> <div className="space-y-3"> <h3 className="text-[10px] font-black text-gray-300 uppercase italic">Room: {roomId}</h3> {(data.history || []).map(h => ( <div key={h.id} className="bg-white p-4 rounded-[2rem] border border-gray-50 shadow-sm"> <div className="flex justify-between items-center mb-2 font-bold text-sm"> <span>{data.playerPool.find(x=>x.id===h.winId)?.name} {h.isZimo?'自摸':'食'} {h.isBao && '包'}</span> <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px]">{h.fan} 番</span> </div> <div className="flex flex-wrap gap-1">{h.hand.map((t, i) => <span key={i} className={`tile-3d text-2xl w-8 h-10 ${t.class}`}>{t.icon}</span>)}</div> </div> ))} </div> </div> ) : tab === 'set' ? ( <div className="p-6 space-y-6"> <h3 className="text-xs font-black text-emerald-800 uppercase italic">Settings</h3> <input type="range" min="0" max="13" value={data.rules.minFan} onChange={e=>broadcast({ rules: {...data.rules, minFan: parseInt(e.target.value)} })} className="w-full" /> <div className="divide-y"> {Array.from({length: 11}).map((_,i)=>{ const f = i+3; return (<div key={f} className="grid grid-cols-2 py-3"><span>{f}番</span><input type="number" value={data.rules.scores[f]||0} onChange={e=>broadcast({rules:{...data.rules, scores:{...data.rules.scores,[f]:parseInt(e.target.value)}}})} className="text-right font-bold text-emerald-600 outline-none" /></div>) })} </div> </div> ) : null} </main> <nav className="fixed bottom-0 max-w-md w-full bg-white border-t flex justify-around py-4 z-40 rounded-t-[2.5rem] shadow-inner"> <button onClick={() => setTab('home')} className={tab==='home'?'text-emerald-600':'text-gray-300'}><Icon name="home" size={24}/></button> <button onClick={() => setTab('history')} className={tab==='history'?'text-emerald-600':'text-gray-300'}><Icon name="layout-dashboard" size={24}/></button> <button onClick={() => setTab('set')} className={tab==='set'?'text-emerald-600':'text-gray-300'}><Icon name="sliders" size={24}/></button> </nav> {/* Modals 邏輯補完 (含 14 格槽) ... */} {modals.entry && ( <div className="fixed inset-0 bg-black/60 z-50 flex items-end"> <div className="bg-white w-full rounded-t-[3.5rem] p-8 max-h-[96vh] overflow-y-auto modal-up"> <div className="flex justify-between items-center mb-8 italic font-black text-xl text-emerald-900 tracking-tighter"><span>ENTRY</span><button onClick={()=>setModals({...modals, entry:false})}><Icon name="x-circle" size={32}/></button></div> <div className="space-y-8 pb-10"> <div className="grid grid-cols-4 gap-2">{data.seats.map((id, idx) => (<button key={idx} onClick={()=>setNewRound({...newRound, winner: idx})} className={`py-4 rounded-3xl font-black ${newRound.winner===idx?'bg-emerald-500 text-white shadow-lg':'bg-gray-100 text-gray-400'}`}>{data.playerPool.find(p=>p.id===id)?.name}</button>))}</div> <div className="flex gap-4"> <button onClick={()=>setNewRound({...newRound, isZimo: !newRound.isZimo})} className={`flex-1 py-4 rounded-3xl font-bold border-2 ${newRound.isZimo?'border-emerald-500 text-emerald-600 bg-emerald-50':'border-gray-100'}`}>自摸</button> <button onClick={()=>setNewRound({...newRound, isBao: !newRound.isBao})} className={`px-8 py-4 rounded-3xl font-bold border-2 ${newRound.isBao?'border-red-500 text-red-600 bg-red-50 shadow-sm':'border-gray-100'}`}>包</button> </div> {(!newRound.isZimo || newRound.isBao) && ( <div className="bg-gray-50 p-5 rounded-[2.5rem] border border-gray-100 shadow-inner"> <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-3 px-2 italic underline underline-offset-4">出銃者 (Shooter)</label> <div className="grid grid-cols-2 gap-2"> {data.seats.map((id, idx) => idx !== newRound.winner && ( <button key={idx} onClick={()=>setNewRound({...newRound, loser: idx})} className={`py-4 rounded-2xl font-black transition-all ${newRound.loser===idx ? 'bg-red-500 text-white shadow-md' : 'bg-white text-gray-300 border border-gray-50'}`}>{data.playerPool.find(p=>p.id===id)?.name}</button> ))} </div> </div> )} <div> <div className="flex justify-between items-center mb-3"> <label className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Hand ({newRound.hand.length}/14)</label> <div className="flex gap-1">{handPatterns.map(p => <span key={p} className="text-[10px] bg-yellow-500 text-white px-2 rounded-full font-black animate-bounce">{p}</span>)}</div> </div> <div className="grid grid-cols-7 gap-1 bg-gray-50 p-4 rounded-[2.5rem] mb-6 border border-gray-100 shadow-inner"> {[...Array(14)].map((_, i) => ( <div key={i} onClick={()=>setNewRound({...newRound, hand: newRound.hand.filter((_, idx)=>idx!==i)})} className="aspect-[3/4] border-none shadow-sm rounded-lg bg-white flex items-center justify-center cursor-pointer transition-all active:scale-95">{newRound.hand[i] && <span className={`text-2xl ${newRound.hand[i].class}`}>{newRound.hand[i].icon}</span>}</div> ))} </div> <div className="flex flex-wrap gap-2.5 max-h-48 overflow-y-auto scrollbar-hide p-1"> {Object.values(TILES_LIB).flat().map((t, idx) => ( <button key={idx} onClick={()=>{if(newRound.hand.length<14) setNewRound({...newRound, hand: [...newRound.hand, t]})}} className={`tile-3d text-3xl w-[44px] h-[58px] ${t.class}`}>{t.icon}</button> ))} </div> </div> <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide"> {Object.keys(data.rules.scores || {}).map(f => ( <button key={f} onClick={()=>setNewRound({...newRound, fan: parseInt(f)})} className={`px-6 py-2 rounded-full font-black border shrink-0 transition-all ${newRound.fan===parseInt(f)?'bg-emerald-600 text-white border-emerald-600 shadow-xl':'bg-gray-100 text-gray-400'}`}>{f}番</button> ))} </div> <button onClick={() => { const winId = data.seats[newRound.winner]; const losId = data.seats[newRound.loser]; const othIds = data.seats.filter(id => id !== winId && (newRound.isZimo || id !== losId)); const nextBanker = newRound.winner !== data.bankerIdx ? (data.bankerIdx + 1) % 4 : data.bankerIdx; broadcast({ history: [{ ...newRound, id: Date.now(), winId, losId, othIds, patterns: handPatterns }, ...(data.history || [])], bankerIdx: nextBanker }); setModals({...modals, entry: false}); setNewRound({ winner: 0, loser: 1, isZimo: false, isBao: false, fan: 3, hand: [] }); }} className="w-full bg-emerald-800 text-white py-7 rounded-[2.5rem] font-black text-2xl shadow-2xl active:scale-95 transition-all">確認提交</button> </div> </div> </div> )} </div> );
+  return (
+    <div className="max-w-md mx-auto min-h-screen flex flex-col bg-[#fdfdfb] shadow-xl relative pb-24">
+      <header className="p-4 flex justify-between items-center bg-white border-b sticky top-0 z-40">
+        <div className="flex gap-4">
+          <button onClick={() => setModals({...modals, settle: true})} className="text-emerald-600 flex flex-col items-center"><Icon name="banknote" size={20}/><span className="text-[8px] font-bold">找數</span></button>
+          <button onClick={() => setModals({...modals, swap: true})} className="text-blue-500 flex flex-col items-center"><Icon name="users" size={20}/><span className="text-[8px] font-bold uppercase">Swap</span></button>
+        </div>
+        <h1 className="font-black italic text-xl text-emerald-800 tracking-tighter uppercase">Mahjong Master</h1>
+        <button onClick={() => setHistory(history.slice(1))} className="text-orange-500 flex flex-col items-center"><Icon name="rotate-ccw" size={20}/><span className="text-[8px] font-bold uppercase">Undo</span></button>
+      </header>
+      <main className="flex-1 overflow-y-auto p-4 space-y-8">
+        {tab === 'home' ? (
+          <div className="space-y-8 animate-in fade-in">
+            <div className="grid grid-cols-2 gap-4">
+              {seats.map((pid, idx) => {
+                const p = playerPool.find(x => x.id === pid);
+                return (
+                  <div key={idx} className="score-card shadow-sm" onClick={() => setModals({...modals, edit: p})}>
+                    {bankerIdx === idx && <div className="banker-tag">莊</div>}
+                    <div className="text-emerald-600 font-bold text-xs mb-2">{p?.name}</div>
+                    <div className={`text-4xl font-black ${scores[pid] >= 0 ? 'text-orange-500' : 'text-emerald-900'}`}>{scores[pid] > 0 ? `+${scores[pid]}` : scores[pid]}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={() => setModals({...modals, entry: true})} className="w-full bg-emerald-500 text-white py-5 rounded-[2.5rem] font-black text-2xl shadow-lg active:scale-95 transition-all">記錄新一局</button>
+          </div>
+        ) : tab === 'history' ? (
+          <div className="space-y-4 animate-in fade-in">
+            {history.map(h => (
+              <div key={h.id} className="bg-white p-4 rounded-[2rem] border border-gray-50 shadow-sm flex flex-col gap-2">
+                <div className="flex justify-between items-center font-bold text-sm">
+                  <span>{playerPool.find(x=>x.id===h.winId)?.name} {h.isZimo?'自摸':'食'} {h.isBao && '包'}</span>
+                  <div className="flex gap-1 items-center">
+                    {h.patterns?.map(p => <span key={p} className="text-[8px] bg-yellow-400 text-white px-1 rounded font-black">{p}</span>)}
+                    <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-bold">{h.fan} 番</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1 opacity-80 scale-95 origin-left">{h.hand.map((t, i) => <span key={i} className={`tile-3d text-2xl w-8 h-10 ${t.class}`}>{t.icon}</span>)}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-6 animate-in slide-in-from-right pb-10">
+            <section className="bg-white rounded-[2.5rem] p-6 shadow-sm space-y-6 border">
+              <h3 className="text-xs font-black text-emerald-800 uppercase italic">Rules Setting</h3>
+              <div className="flex gap-2 p-1 bg-gray-50 rounded-2xl">
+                {['full','half'].map(t=>(<button key={t} onClick={()=>setRules({...rules, payType:t})} className={`flex-1 py-3 rounded-xl font-bold text-sm ${rules.payType===t?'bg-white shadow text-emerald-600':'text-gray-400'}`}>{t==='full'?'全銃':'半銃'}</button>))}
+              </div>
+              <div className="flex justify-between text-xs font-black text-emerald-600"><span>{rules.minFan}番起糊</span><span>{rules.maxFan}番滿糊</span></div>
+              <input type="range" min="0" max="13" value={rules.minFan} onChange={e=>setRules({...rules, minFan:parseInt(e.target.value)})} className="w-full" />
+              <div className="divide-y divide-gray-50 overflow-y-auto max-h-80 pr-2">
+                {Array.from({length: rules.maxFan-rules.minFan+1}).map((_,i)=>{ const f = rules.minFan+i; return (<div key={f} className="grid grid-cols-3 py-3 items-center text-center"><span>{f}番</span><input type="number" value={rules.scores[f]||0} onChange={e=>setRules({...rules, scores:{...rules.scores,[f]:parseInt(e.target.value)}})} className="bg-transparent text-center font-black text-emerald-600 outline-none w-16 mx-auto" /><span>摸 {Math.floor((rules.scores[f]||0)*1.5)}</span></div>) })}
+              </div>
+            </section>
+          </div>
+        )}
+      </main>
+      <nav className="fixed bottom-0 max-w-md w-full bg-white border-t flex justify-around py-4 z-40 rounded-t-[2.5rem] shadow-inner">
+        <button onClick={() => setTab('home')} className={tab==='home'?'text-emerald-600':'text-gray-300'}><Icon name="home" size={24}/></button>
+        <button onClick={() => setTab('history')} className={tab==='history'?'text-emerald-600':'text-gray-300'}><Icon name="layout-dashboard" size={24}/></button>
+        <button onClick={() => setTab('set')} className={tab==='set'?'text-emerald-600':'text-gray-300'}><Icon name="sliders" size={24}/></button>
+      </nav>
+      {/* Entry Modal */}
+      {modals.entry && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end animate-in fade-in">
+          <div className="bg-white w-full rounded-t-[3.5rem] p-8 max-h-[96vh] overflow-y-auto modal-up">
+            <div className="flex justify-between items-center mb-8 italic font-black text-xl text-emerald-900 uppercase"><span>Record Winner</span><button onClick={()=>setModals({...modals, entry:false})}><Icon name="x-circle" size={32}/></button></div>
+            <div className="space-y-8 pb-10">
+              <div className="grid grid-cols-4 gap-2">{seats.map((id, idx) => (<button key={idx} onClick={()=>setNewRound({...newRound, winner:idx})} className={`py-4 rounded-3xl font-bold transition-all ${newRound.winner===idx?'bg-emerald-500 text-white shadow-lg':'bg-gray-100'}`}>{playerPool.find(x=>x.id===id)?.name}</button>))}</div>
+              <div className="flex gap-4">
+                <button onClick={()=>setNewRound({...newRound, isZimo:!newRound.isZimo})} className={`flex-1 py-4 rounded-3xl font-bold border-2 ${newRound.isZimo?'border-emerald-500 text-emerald-600 bg-emerald-50':'border-gray-100'}`}>自摸</button>
+                <button onClick={()=>setNewRound({...newRound, isBao:!newRound.isBao})} className={`px-8 py-4 rounded-3xl font-bold border-2 ${newRound.isBao?'border-red-500 text-red-600 bg-red-50':'border-gray-100'}`}>包</button>
+              </div>
+              {(!newRound.isZimo || newRound.isBao) && (
+                <div className="bg-gray-50 p-5 rounded-[2.5rem] border border-gray-100 shadow-inner italic uppercase">
+                  <label className="text-[10px] font-black text-gray-400 tracking-widest block mb-3 px-2 underline underline-offset-4">出銃者 (Shooter)</label>
+                  <div className="grid grid-cols-2 gap-2">{seats.map((id, idx) => idx !== newRound.winner && (<button key={idx} onClick={()=>setNewRound({...newRound, loser:idx})} className={`py-4 rounded-2xl font-black ${newRound.loser===idx ? 'bg-red-500 text-white shadow-md' : 'bg-white text-gray-300 border border-gray-50'}`}>{playerPool.find(p=>p.id===id)?.name}</button>))}</div>
+                </div>
+              )}
+              <div>
+                <div className="flex justify-between items-center mb-3"><label className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Hand ({newRound.hand.length}/14)</label><div className="flex gap-1">{handPatterns.map(p => <span key={p} className="text-[10px] bg-yellow-500 text-white px-2 rounded-full font-black animate-bounce">{p}</span>)}</div></div>
+                <div className="grid grid-cols-7 gap-1 bg-gray-50 p-4 rounded-[2.5rem] mb-6 border shadow-inner">
+                  {[...Array(14)].map((_, i) => (<div key={i} onClick={()=>setNewRound({...newRound, hand: newRound.hand.filter((_, idx)=>idx!==i)})} className="aspect-[3/4] border-none shadow-sm rounded-lg bg-white flex items-center justify-center cursor-pointer transition-all active:scale-95">{newRound.hand[i] && <span className={`text-2xl ${newRound.hand[i].class}`}>{newRound.hand[i].icon}</span>}</div>))}
+                </div>
+                <div className="flex flex-wrap gap-2.5 max-h-48 overflow-y-auto scrollbar-hide p-1">
+                  {Object.values(TILES_LIB).flat().map((t, idx) => (<button key={idx} onClick={()=>{if(newRound.hand.length<14) setNewRound({...newRound, hand: [...newRound.hand, t]})}} className={`tile-3d text-3xl w-[44px] h-[58px] ${t.class}`}>{t.icon}</button>))}
+                </div>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">{Object.keys(rules.scores).map(f => (<button key={f} onClick={()=>setNewRound({...newRound, fan:parseInt(f)})} className={`px-6 py-2 rounded-full font-black border shrink-0 transition-all ${newRound.fan===parseInt(f)?'bg-emerald-600 text-white border-emerald-600 shadow-xl':'bg-gray-50 text-gray-400'}`}>{f}番</button>))}</div>
+              <button onClick={() => { const winId = seats[newRound.winner]; const losId = seats[newRound.loser]; const othIds = seats.filter(id => id !== winId && (newRound.isZimo || id !== losId)); setHistory([{ ...newRound, id: Date.now(), winId, losId, othIds, patterns: handPatterns }, ...history]); setModals({...modals, entry: false}); setNewRound({ winner: 0, loser: 1, isZimo: false, isBao: false, fan: 3, hand: [] }); }} className="w-full bg-emerald-800 text-white py-7 rounded-[2.5rem] font-black text-2xl shadow-2xl active:scale-95 transition-all">確認入帳</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Rename Modal */}
+      {modals.edit && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 animate-in fade-in"><div className="bg-white w-full rounded-[3.5rem] p-10 shadow-2xl text-center"><h2 className="text-xl font-black mb-6 uppercase italic text-emerald-800 tracking-tighter">Rename Player</h2><input className="w-full p-6 bg-gray-100 rounded-3xl font-black text-2xl outline-none mb-8 focus:ring-4 ring-emerald-50 shadow-inner" value={modals.edit.name} onChange={(e) => { const n = e.target.value; setPlayerPool(playerPool.map(p => p.id === modals.edit.id ? {...p, name: n} : p)); setModals({...modals, edit: {...modals.edit, name: n}}); }} /><button onClick={()=>setModals({...modals, edit: null})} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-bold shadow-lg active:scale-95 transition-all">確定</button></div></div>
+      )}
+      {/* Swap Modal */}
+      {modals.swap && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in"><div className="bg-white w-full rounded-[3rem] p-8 shadow-2xl"><h2 className="text-xl font-black text-center mb-6 uppercase italic text-emerald-800 tracking-tighter uppercase">Swap Seats</h2><div className="grid grid-cols-2 gap-4 mb-8">{seats.map((seatPid, idx) => (<div key={idx} className="flex flex-col gap-2 p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-inner"><span className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter italic">Seat {idx+1}</span><select className="font-bold bg-white p-2 rounded-xl outline-none" value={seatPid} onChange={(e) => { const newS = [...seats]; newS[idx] = parseInt(e.target.value); setSeats(newS); }}>{playerPool.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}</select></div>))}</div><button onClick={()=>setModals({...modals, swap: false})} className="w-full bg-emerald-500 text-white py-4 rounded-3xl font-bold shadow-md">完成更換</button></div></div>
+      )}
+      {/* Settle Modal */}
+      {modals.settle && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in"><div className="bg-white w-full rounded-[3rem] p-10 shadow-2xl max-h-[80vh] overflow-y-auto text-center"><h2 className="text-2xl font-black mb-8 uppercase italic text-emerald-700 underline underline-offset-8">Settlement</h2><div className="space-y-6 mb-10 text-left">{useMemo(() => { let debtors = []; let creditors = []; Object.entries(scores).forEach(([id, score]) => { if (score < 0) debtors.push({ n: playerPool.find(p=>p.id==id).name, a: Math.abs(score) }); else if (score > 0) creditors.push({ n: playerPool.find(p=>p.id==id).name, a: score }); }); let txs = []; let d = 0, c = 0; while (d < debtors.length && c < creditors.length) { let amt = Math.min(debtors[d].a, creditors[c].a); txs.push({ from: debtors[d].n, to: creditors[c].n, amount: amt }); debtors[d].a -= amt; creditors[c].a -= amt; if (debtors[d].a === 0) d++; if (creditors[c].a === 0) c++; } return txs; }, [scores]).map((tx, i) => (<div key={i} className="flex justify-between items-center p-5 bg-emerald-50 rounded-2xl border border-emerald-100 shadow-sm"><span className="font-bold text-emerald-900">{tx.from}</span><div className="flex flex-col items-center"><Icon name="arrow-right" className="text-emerald-300" size={14}/><span className="text-lg font-black text-emerald-600">${tx.amount}</span></div><span className="font-bold text-emerald-900">{tx.to}</span></div>))}</div><button onClick={() => setModals({...modals, settle: false})} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-bold shadow-lg">關閉</button></div></div>
+      )}
+    </div>
+  );
 }
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
