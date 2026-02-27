@@ -14,13 +14,13 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
 body { background-color: #f7f3e9; font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
-.tile-3d { display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 4px; line-height: 1; box-shadow: 0 2px 0 #ddd, 0 3px 0 #ccc, 0 4px 6px rgba(0,0,0,0.1); aspect-ratio: 3/4; color: #333; font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif; transition: all 0.1s; }
-.tile-3d:active { transform: translateY(2px); box-shadow: 0 1px 0 #ccc; }
+.mahjong-tile { display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 4px; line-height: 1; box-shadow: 0 2px 0 #ddd, 0 3px 0 #ccc, 0 4px 6px rgba(0,0,0,0.1); aspect-ratio: 3/4; color: #333; font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif; transition: all 0.1s; }
+.score-card { background: #fff; border-radius: 2.5rem; padding: 1.5rem; cursor: pointer; transition: all 0.2s; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.03); }
+.score-card:active { transform: scale(0.95); }
+.banker-tag { position: absolute; top: 15px; right: 25px; color: #ef4444; font-weight: 900; }
 .t-wan { color: #d32f2f; }
 .t-tong { color: #1976d2; }
 .t-sok { color: #388e3c; }
-.score-card { background: #fff; border-radius: 2.2rem; padding: 1.5rem; cursor: pointer; transition: all 0.2s; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.03); }
-.banker-tag { position: absolute; top: 12px; right: 20px; color: #ef4444; font-weight: 900; font-size: 14px; }
 input[type=range] { accent-color: #10b981; }
 .modal-up { animation: slideUp 0.3s ease-out; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -32,6 +32,7 @@ input[type=range] { accent-color: #10b981; }
 <script type="text/babel">
 const { useState, useEffect, useMemo } = React;
 
+// Firebase 配置 (來自你剛才獲取的密鑰)
 const firebaseConfig = {
   apiKey: "AIzaSyBwRI1gCi3d-DcX0tRhjpknBZHIYRxvAQg",
   authDomain: "mahjongmaster-b9b62.firebaseapp.com",
@@ -39,6 +40,7 @@ const firebaseConfig = {
   storageBucket: "mahjongmaster-b9b62.firebasestorage.app",
   messagingSenderId: "982936187849",
   appId: "1:982936187849:web:6c68d22b07e31c85962e18",
+  measurementId: "G-TY8GX8JVNE",
   databaseURL: "https://mahjongmaster-b9b62-default-rtdb.firebaseio.com"
 };
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
@@ -71,81 +73,34 @@ const Icon = ({ name, size = 20 }) => { useEffect(() => { lucide.createIcons(); 
 function App() {
   const [roomId, setRoomId] = useState("");
   const [isJoined, setIsJoined] = useState(false);
-  const [activeTab, setActiveTab] = useState('home');
-  const [cloudData, setCloudData] = useState({
-    history: [],
-    playerPool: [{id:1,name:'Ruby'},{id:2,name:'玩家 2'},{id:3,name:'玩家 3'},{id:4,name:'玩家 4'},{id:5,name:'Dale'},{id:6,name:'Franky'}],
-    seats: [1,2,3,4],
-    bankerIdx: 0,
-    rules: { scores: {3:8,4:16,5:24,6:32,7:48,8:64,9:96,10:128} }
-  });
-
-  useEffect(() => {
-    if (isJoined && roomId) {
-      const roomRef = db.ref('rooms/' + roomId);
-      roomRef.on('value', (s) => { if (s.val()) setCloudData(s.val()); });
-      return () => roomRef.off();
-    }
-  }, [isJoined, roomId]);
-
-  const broadcast = (newData) => {
-    const updated = { ...cloudData, ...newData };
-    setCloudData(updated);
-    db.ref('rooms/' + roomId).set(updated);
-  };
-
+  const [tab, setTab] = useState('home');
+  const [cloudData, setCloudData] = useState({ history: [], playerPool: [{id:1,name:'Ruby'},{id:2,name:'玩家 2'},{id:3,name:'玩家 3'},{id:4,name:'玩家 4'}], seats: [1,2,3,4], bankerIdx: 0, rules: { scores: {3:8,4:16,5:24,6:32,7:48,8:64,9:96,10:128} } });
+  useEffect(() => { if (isJoined && roomId) { const roomRef = db.ref('rooms/' + roomId); roomRef.on('value', (s) => { if (s.val()) setCloudData(s.val()); }); return () => roomRef.off(); } }, [isJoined, roomId]);
+  const broadcast = (newData) => { const updated = { ...cloudData, ...newData }; setCloudData(updated); db.ref('rooms/' + roomId).set(updated); };
   const currentScores = useMemo(() => {
-    let s = {};
-    cloudData.playerPool.forEach(p => s[p.id] = 0);
+    let s = {}; cloudData.playerPool.forEach(p => s[p.id] = 0);
     (cloudData.history || []).forEach(h => {
       const base = (cloudData.rules.scores || {})[h.fan] || 0;
       const zimoTotal = Math.floor(base * 1.5);
       const per = Math.floor(zimoTotal / 3);
-      if (h.isZimo) {
-        if (h.isBao) { s[h.winId] += zimoTotal; s[h.losId] -= zimoTotal; }
-        else { s[h.winId] += zimoTotal; h.othIds.forEach(id => s[id] -= per); }
-      } else {
-        const totalWinRon = base + (per * 2);
-        s[h.winId] += totalWinRon; s[h.losId] -= base; h.othIds.forEach(id => s[id] -= per);
-      }
+      if (h.isZimo) { if (h.isBao) { s[h.winId] += zimoTotal; s[h.losId] -= zimoTotal; } else { s[h.winId] += zimoTotal; h.othIds.forEach(id => s[id] -= per); } }
+      else { const winRon = base + (per * 2); s[h.winId] += winRon; s[h.losId] -= base; h.othIds.forEach(id => s[id] -= per); }
     });
     return s;
   }, [cloudData]);
-
   const [modals, setModals] = useState({ entry: false, edit: null, swap: false, settle: false });
   const [newRound, setNewRound] = useState({ winner: 0, loser: 1, isZimo: false, isBao: false, fan: 3, hand: [] });
   const handPatterns = useMemo(() => analyzeHand(newRound.hand), [newRound.hand]);
-
-  const settlements = useMemo(() => {
-    let debtors = [];
-    let creditors = [];
-    Object.entries(currentScores).forEach(([id, score]) => {
-      if (score < 0) debtors.push({ n: cloudData.playerPool.find(p=>p.id==id).name, a: Math.abs(score) });
-      else if (score > 0) creditors.push({ n: cloudData.playerPool.find(p=>p.id==id).name, a: score });
-    });
-    let txs = [];
-    let d = 0, c = 0;
-    while (d < debtors.length && c < creditors.length) {
-      let amount = Math.min(debtors[d].a, creditors[c].a);
-      txs.push({ from: debtors[d].n, to: creditors[c].n, amount });
-      debtors[d].a -= amount;
-      creditors[c].a -= amount;
-      if (debtors[d].a === 0) d++;
-      if (creditors[c].a === 0) c++;
-    }
-    return txs;
-  }, [currentScores]);
-
   if (!isJoined) return (
     <div className="min-h-screen bg-[#064e3b] flex items-center justify-center p-8">
       <div className="bg-white w-full max-w-sm rounded-[3rem] p-10 shadow-2xl text-center">
         <h1 className="text-2xl font-black italic text-emerald-800 mb-8 uppercase tracking-tighter">Enter Room</h1>
-        <input className="w-full p-5 bg-gray-50 rounded-2xl mb-6 text-center font-black text-xl border-2 border-emerald-50 outline-none focus:border-emerald-500" placeholder="ROOM ID" value={roomId} onChange={e=>setRoomId(e.target.value)} />
-        <button onClick={()=>setIsJoined(true)} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-black text-lg shadow-xl active:scale-95 transition-all">進入房間</button>
+        <input className="w-full p-5 bg-gray-50 rounded-2xl mb-6 text-center font-black text-xl border-2 border-emerald-50 outline-none" placeholder="ROOM ID" id="ridInput" />
+        <button onClick={() => {const id = document.getElementById('ridInput').value; if(id) {setRoomId(id); setIsJoined(true);}}} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-black text-lg shadow-xl active:scale-95 transition-all">進入房間</button>
+        <p className="text-[10px] text-gray-300 mt-6 font-bold uppercase tracking-widest italic">Cloud Sync Final Edition</p>
       </div>
     </div>
   );
-
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col bg-[#fdfdfb] shadow-xl relative pb-24">
       <header className="p-4 flex justify-between items-center bg-white border-b sticky top-0 z-40">
@@ -153,62 +108,51 @@ function App() {
           <button onClick={() => setModals({...modals, settle: true})} className="text-emerald-600 flex flex-col items-center"><Icon name="banknote" size={20}/><span className="text-[8px] font-bold">找數</span></button>
           <button onClick={() => setModals({...modals, swap: true})} className="text-blue-500 flex flex-col items-center"><Icon name="users" size={20}/><span className="text-[8px] font-bold uppercase">Swap</span></button>
         </div>
-        <h1 className="font-black italic text-xl text-emerald-800 tracking-tighter">MAHJONG PRO</h1>
+        <h1 className="font-black italic text-xl text-emerald-800 tracking-tighter uppercase">Mahjong Master</h1>
         <button onClick={() => broadcast({ history: cloudData.history.slice(1) })} className="text-orange-500 flex flex-col items-center"><Icon name="rotate-ccw" size={20}/><span className="text-[8px] font-bold uppercase">Undo</span></button>
       </header>
-
       <main className="flex-1 overflow-y-auto p-4 space-y-8">
-        {activeTab === 'home' ? (
+        {tab === 'home' ? (
           <div className="space-y-8 animate-in fade-in">
             <div className="grid grid-cols-2 gap-4">
-              {cloudData.seats.map((pid, idx) => {
-                const p = cloudData.playerPool.find(x => x.id === pid);
-                const score = currentScores[pid];
-                return (
-                  <div key={idx} className="score-card shadow-sm" onClick={() => setModals({...modals, edit: p})}>
-                    {cloudData.bankerIdx === idx && <div className="banker-tag text-red-500">莊</div>}
-                    <div className="text-emerald-600 font-bold text-xs mb-2 truncate">玩家 {idx+1}：{p.name}</div>
-                    <div className={`text-5xl font-black ${score >= 0 ? 'text-orange-500' : 'text-emerald-900'}`}>{score > 0 ? `+${score}` : score}</div>
-                  </div>
-                );
-              })}
+              {cloudData.seats.map((pid, idx) => { const p = cloudData.playerPool.find(x => x.id === pid); const score = currentScores[pid]; return (
+                <div key={idx} className="score-card" onClick={() => setModals({...modals, edit: p})}>
+                  {cloudData.bankerIdx === idx && <div className="banker-tag text-red-500">莊</div>}
+                  <div className="text-emerald-600 font-bold text-xs mb-2 truncate">{p.name}</div>
+                  <div className={`text-4xl font-black ${score >= 0 ? 'text-orange-500' : 'text-emerald-900'}`}>{score > 0 ? `+${score}` : score}</div>
+                </div>
+              ); })}
             </div>
             <button onClick={() => setModals({...modals, entry: true})} className="w-full bg-emerald-500 text-white py-5 rounded-[2.5rem] font-black text-2xl shadow-lg active:scale-95 transition-all">記錄新一局</button>
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-black text-gray-300 uppercase tracking-widest px-2 italic">History - {roomId}</h3>
+              {cloudData.history?.map(h => (
+                <div key={h.id} className="bg-white p-4 rounded-[2rem] border border-gray-50 shadow-sm flex flex-col gap-2">
+                  <div className="flex justify-between items-center font-bold text-sm">
+                    <span>{cloudData.playerPool.find(x=>x.id===h.winId).name} <span className="text-gray-400 font-normal">{h.isZimo ? '自摸' : '食'}</span> {!h.isZimo && cloudData.playerPool.find(x=>x.id===h.losId).name} {h.isBao && '包'}</span>
+                    <div className="flex gap-1 items-center"> {h.patterns?.map(p => <span key={p} className="text-[8px] bg-yellow-400 text-white px-1 rounded font-black">{p}</span>)} <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-bold">{h.fan} 番</span> </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1 opacity-80 scale-95 origin-left">{h.hand.map((t, i) => <span key={i} className={`mahjong-tile text-2xl w-8 h-10 ${t.class}`}>{t.icon}</span>)}</div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : activeTab === 'history' ? (
-          <div className="space-y-4 animate-in fade-in">
-            {(cloudData.history || []).map(h => (
-              <div key={h.id} className="bg-white p-4 rounded-[2rem] border border-gray-50 shadow-sm flex flex-col gap-2">
-                <div className="flex justify-between items-center font-bold text-sm">
-                  <span>{cloudData.playerPool.find(x=>x.id===h.winId).name} <span className="text-gray-400 font-normal">{h.isZimo ? '自摸' : '食'}</span> {!h.isZimo && cloudData.playerPool.find(x=>x.id===h.losId).name} {h.isBao && '包'}</span>
-                  <div className="flex gap-1 items-center">
-                    {h.patterns?.map(p => <span key={p} className="text-[8px] bg-yellow-400 text-white px-1 rounded font-black">{p}</span>)}
-                    <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-bold">{h.fan} 番</span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1 opacity-80 scale-95 origin-left">{h.hand.map((t, i) => <span key={i} className={`tile-3d text-2xl w-8 h-10 ${t.class}`}>{t.icon}</span>)}</div>
-              </div>
-            ))}
-          </div>
+          <div className="p-4 text-center text-gray-400 italic">戰報數據同步中...</div>
         ) : (
-          <div className="space-y-6 animate-in slide-in-from-right pb-10">
-            <section className="bg-white rounded-[2.5rem] p-6 shadow-sm space-y-6">
-              <h3 className="text-xs font-black text-emerald-800 uppercase italic">Rules Setting</h3>
-              <input type="range" min="0" max="13" value={cloudData.rules.minFan} onChange={e=>broadcast({ rules: {...cloudData.rules, minFan: parseInt(e.target.value)} })} className="w-full h-2 bg-gray-100" />
-              <div className="divide-y divide-gray-50 overflow-y-auto max-h-80 pr-2 scrollbar-hide">
-                {Array.from({length: (cloudData.rules.maxFan||10)-(cloudData.rules.minFan||3)+1}).map((_,i)=>{ const f = (cloudData.rules.minFan||3)+i; return (<div key={f} className="grid grid-cols-3 py-3 items-center text-center"><span className="font-bold text-gray-300">{f}番</span><input type="number" value={cloudData.rules.scores[f]||0} onChange={e => { const newScores = {...cloudData.rules.scores, [f]: parseInt(e.target.value)||0}; broadcast({ rules: {...cloudData.rules, scores: newScores} }); }} className="bg-transparent text-center font-black text-emerald-600 outline-none w-16 mx-auto" /><span>摸 {Math.floor((cloudData.rules.scores[f]||0)*1.5)}</span></div>) })}
-              </div>
-            </section>
+          <div className="p-6 space-y-6">
+            <h3 className="text-xs font-black text-emerald-800 uppercase italic">Rules Setting</h3>
+            <input type="range" min="0" max="13" value={cloudData.rules.minFan} onChange={e=>broadcast({ rules: {...cloudData.rules, minFan: parseInt(e.target.value)} })} className="w-full" />
+            <div className="divide-y divide-gray-50"> {Array.from({length: (cloudData.rules.maxFan||10)-(cloudData.rules.minFan||3)+1}).map((_,i)=>{ const f = (cloudData.rules.minFan||3)+i; return (<div key={f} className="grid grid-cols-3 py-3 items-center text-center"><span className="font-bold text-gray-300">{f}番</span><input type="number" value={cloudData.rules.scores[f]||0} onChange={e => broadcast({ rules: {...cloudData.rules, scores: {...cloudData.rules.scores, [f]: parseInt(e.target.value)||0}} })} className="bg-transparent text-center font-black text-emerald-600 outline-none w-16 mx-auto" /><span>摸 {Math.floor((cloudData.rules.scores[f]||0)*1.5)}</span></div>) })} </div>
+            <button onClick={()=>setTab('home')} className="w-full bg-emerald-500 text-white py-5 rounded-[2rem] font-bold shadow-xl mt-4">完成設定</button>
           </div>
         )}
       </main>
-
       <nav className="fixed bottom-0 max-w-md w-full bg-white/95 backdrop-blur-md border-t flex justify-around py-4 z-40 rounded-t-[2.5rem] shadow-inner">
-        <button onClick={() => setActiveTab('home')} className={activeTab==='home'?'text-emerald-600':'text-gray-300'}><Icon name="home" size={24}/></button>
-        <button onClick={() => setActiveTab('history')} className={activeTab==='history'?'text-emerald-600':'text-gray-300'}><Icon name="layout-dashboard" size={24}/></button>
-        <button onClick={() => setActiveTab('set')} className={activeTab==='set'?'text-emerald-600':'text-gray-300'}><Icon name="sliders" size={24}/></button>
+        <button onClick={() => setTab('home')} className={tab==='home'?'text-emerald-600':'text-gray-300'}><Icon name="home" size={24}/></button>
+        <button onClick={() => setTab('history')} className={tab==='history'?'text-emerald-600':'text-gray-300'}><Icon name="layout-dashboard" size={24}/></button>
+        <button onClick={() => setTab('set')} className={tab==='set'?'text-emerald-600':'text-gray-300'}><Icon name="sliders" size={24}/></button>
       </nav>
-
       {modals.entry && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end animate-in fade-in">
           <div className="bg-white w-full rounded-t-[3.5rem] p-8 max-h-[96vh] overflow-y-auto modal-up">
@@ -216,8 +160,8 @@ function App() {
             <div className="space-y-8 pb-10">
               <div className="grid grid-cols-4 gap-2">{cloudData.seats.map((id, idx) => (<button key={idx} onClick={()=>setNewRound({...newRound, winner: idx})} className={`py-4 rounded-3xl font-black transition-all ${newRound.winner===idx?'bg-emerald-500 text-white shadow-lg':'bg-gray-100 text-gray-400'}`}>{cloudData.playerPool.find(p=>p.id===id).name}</button>))}</div>
               <div className="flex gap-4">
-                <button onClick={()=>setNewRound({...newRound, isZimo: !newRound.isZimo})} className={`flex-1 py-4 rounded-3xl font-bold border-2 transition-all ${newRound.isZimo?'border-emerald-500 text-emerald-600 bg-emerald-50':'border-gray-100'}`}>自摸</button>
-                <button onClick={()=>setNewRound({...newRound, isBao: !newRound.isBao})} className={`px-8 py-4 rounded-3xl font-bold border-2 transition-all ${newRound.isBao?'border-red-500 text-red-600 bg-red-50 shadow-sm':'border-gray-100'}`}>包</button>
+                <button onClick={()=>setNewRound({...newRound, isZimo: !newRound.isZimo})} className={`flex-1 py-4 rounded-3xl font-bold border-2 transition-all ${newRound.isZimo?'border-emerald-500 text-emerald-600 bg-emerald-50':'border-gray-100 text-gray-300'}`}>自摸</button>
+                <button onClick={()=>setNewRound({...newRound, isBao: !newRound.isBao})} className={`px-8 py-4 rounded-3xl font-bold border-2 transition-all ${newRound.isBao?'border-red-500 text-red-600 bg-red-50 shadow-sm':'border-gray-100 text-gray-300'}`}>包</button>
               </div>
               {(!newRound.isZimo || newRound.isBao) && (
                 <div className="bg-gray-50 p-5 rounded-[2.5rem] border border-gray-100 shadow-inner italic underline decoration-gray-200"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-3 px-2">出銃者 (Shooter)</label><div className="grid grid-cols-2 gap-2">{cloudData.seats.map((id, idx) => idx !== newRound.winner && (<button key={idx} onClick={()=>setNewRound({...newRound, loser: idx})} className={`py-4 rounded-2xl font-black transition-all ${newRound.loser===idx ? 'bg-red-500 text-white shadow-md' : 'bg-white text-gray-300'}`}>{cloudData.playerPool.find(p=>p.id===id).name}</button>))}</div></div>
@@ -225,7 +169,7 @@ function App() {
               <div>
                 <div className="flex justify-between items-center mb-3"><label className="text-[10px] font-black text-gray-300 uppercase tracking-widest px-1">Hand ({newRound.hand.length}/14)</label><div className="flex gap-1">{handPatterns.map(p => <span key={p} className="text-[10px] bg-yellow-500 text-white px-2 rounded-full font-black animate-bounce">{p}</span>)}</div></div>
                 <div className="grid grid-cols-7 gap-1 bg-gray-50 p-4 rounded-[2.5rem] mb-6 border shadow-inner">{[...Array(14)].map((_, i) => (<div key={i} onClick={()=>setNewRound({...newRound, hand: newRound.hand.filter((_, idx)=>idx!==i)})} className="aspect-[3/4] border-none shadow-sm rounded-lg bg-white flex items-center justify-center cursor-pointer active:scale-95 transition-all">{newRound.hand[i] && <span className={`text-2xl ${newRound.hand[i].class}`}>{newRound.hand[i].icon}</span>}</div>))}</div>
-                <div className="flex flex-wrap gap-2.5 max-h-48 overflow-y-auto scrollbar-hide"> {Object.values(TILES_LIB).flat().map((t, idx) => (<button key={idx} onClick={()=>{if(newRound.hand.length<14) setNewRound({...newRound, hand: [...newRound.hand, t]})}} className={`tile-3d text-3xl w-[44px] h-[58px] ${t.class}`}>{t.icon}</button>))} </div>
+                <div className="flex flex-wrap gap-2.5 max-h-48 overflow-y-auto scrollbar-hide">{Object.values(TILES_LIB).flat().map((t, idx) => (<button key={idx} onClick={()=>{if(newRound.hand.length<14) setNewRound({...newRound, hand: [...newRound.hand, t]})}} className={`mahjong-tile text-3xl w-[44px] h-[58px] ${t.class}`}>{t.icon}</button>))}</div>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">{Object.keys(cloudData.rules.scores).map(f => (<button key={f} onClick={()=>setNewRound({...newRound, fan: parseInt(f)})} className={`px-6 py-2 rounded-full font-black border shrink-0 transition-all ${newRound.fan===parseInt(f)?'bg-emerald-600 text-white border-emerald-600 shadow-xl':'bg-gray-100 text-gray-400'}`}>{f}番</button>))}</div>
               <button onClick={() => { const winId = cloudData.seats[newRound.winner]; const losId = cloudData.seats[newRound.loser]; const othIds = cloudData.seats.filter(id => id !== winId && (newRound.isZimo || id !== losId)); broadcast({ history: [{ ...newRound, id: Date.now(), winId, losId, othIds, patterns: handPatterns }, ...(cloudData.history || [])], bankerIdx: newRound.winner !== cloudData.bankerIdx ? (cloudData.bankerIdx + 1) % 4 : cloudData.bankerIdx }); setModals({...modals, entry: false}); setNewRound({ winner: 0, loser: 1, isZimo: false, isBao: false, fan: 3, hand: [] }); }} className="w-full bg-emerald-800 text-white py-7 rounded-[2.5rem] font-black text-2xl shadow-2xl active:scale-95 transition-all">確認提交</button>
@@ -233,24 +177,9 @@ function App() {
           </div>
         </div>
       )}
-
-      {modals.settle && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full rounded-[3rem] p-10 shadow-2xl max-h-[80vh] overflow-y-auto"><h2 className="text-2xl font-black text-center mb-8 uppercase italic text-emerald-700 underline underline-offset-8 decoration-emerald-200">Settlement</h2><div className="space-y-6 mb-10 text-left">{settlements.map((tx, i) => (<div key={i} className="flex justify-between items-center p-5 bg-emerald-50 rounded-2xl border border-emerald-100 shadow-sm"><span className="font-bold text-emerald-900">{tx.from}</span><div className="flex flex-col items-center"><Icon name="arrow-right" className="text-emerald-300" size={14}/><span className="text-lg font-black text-emerald-600">${tx.amount}</span></div><span className="font-bold text-emerald-900">{tx.to}</span></div>))}</div><button onClick={() => setModals({...modals, settle: false})} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-bold shadow-lg">關閉</button></div>
-        </div>
-      )}
-
-      {modals.edit && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 animate-in fade-in"><div className="bg-white w-full rounded-[3.5rem] p-10 shadow-2xl text-center"><h2 className="text-xl font-black mb-6 uppercase italic text-emerald-800 tracking-tighter">Rename Player</h2><input className="w-full p-6 bg-gray-100 rounded-3xl font-black text-2xl outline-none mb-8 focus:ring-4 ring-emerald-50 shadow-inner" value={modals.edit.name} onChange={(e) => { const n = e.target.value; const updatedPool = cloudData.playerPool.map(p => p.id === modals.edit.id ? {...p, name: n} : p); broadcast({ playerPool: updatedPool }); setModals({...modals, edit: {...modals.edit, name: n}}); }} /><button onClick={()=>setModals({...modals, edit: null})} className="w-full bg-emerald-500 text-white py-5 rounded-3xl font-bold shadow-lg active:scale-95 transition-all">確定</button></div></div>
-      )}
-
-      {modals.swap && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in"><div className="bg-white w-full rounded-[3rem] p-8 shadow-2xl card-shadow"><h2 className="text-xl font-black text-center mb-6 uppercase italic text-emerald-800 tracking-tighter uppercase">Swap Seats</h2><div className="grid grid-cols-2 gap-4 mb-8">{cloudData.seats.map((seatPid, idx) => (<div key={idx} className="flex flex-col gap-2 p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-inner"><span className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter italic">Seat {idx+1}</span><select className="font-bold bg-white p-2 rounded-xl outline-none" value={seatPid} onChange={(e) => { const newSeats = [...cloudData.seats]; newSeats[idx] = parseInt(e.target.value); broadcast({ seats: newSeats }); }}>{cloudData.playerPool.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}</select></div>))}</div><button onClick={()=>setModals({...modals, swap: false})} className="w-full bg-emerald-500 text-white py-4 rounded-3xl font-bold shadow-md active:scale-95 transition-all">完成更換</button></div></div>
-      )}
     </div>
   );
 }
-
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
